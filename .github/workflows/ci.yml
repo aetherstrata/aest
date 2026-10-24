@@ -34,7 +34,7 @@ jobs:
           - preset: windows-msvc
             os: windows-2025-vs2026
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: true
 
@@ -90,7 +90,7 @@ jobs:
       AEST_SOURCE_DIR: ${{ github.workspace }}
       VCPKG_KEEP_ENV_VARS: AEST_SOURCE_DIR
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: true
 
@@ -121,7 +121,7 @@ jobs:
     env:
       DOXYGEN_VERSION: 1.18.0
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install compiler
         run: sudo apt-get update && sudo apt-get install -y g++-16
@@ -142,7 +142,7 @@ jobs:
       - name: Build documentation
         run: cmake --build build/docs --target aest_docs
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: docs
           path: build/docs/docs/html
