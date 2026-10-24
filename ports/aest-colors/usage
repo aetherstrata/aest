@@ -1,0 +1,7 @@
+aest-colors provides the module `aest.colors`:
+
+  find_package(aest-colors CONFIG REQUIRED)
+  target_link_libraries(main PRIVATE aest::colors)
+
+  // C++
+  import aest.colors;

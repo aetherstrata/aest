@@ -1,0 +1,148 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Superseded pull request runs are cancelled; runs on main always finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: ${{ matrix.preset }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [linux-gcc, linux-clang, windows-msvc]
+        include:
+          - preset: linux-gcc
+            os: ubuntu-26.04
+            packages: g++-16
+            cmake-args: -DCMAKE_CXX_COMPILER=g++-16
+          - preset: linux-clang
+            os: ubuntu-26.04
+            packages: clang-22 clang-tools-22 libstdc++-16-dev
+            cmake-args: -DCMAKE_CXX_COMPILER=clang++-22 -DCMAKE_CXX_COMPILER_CLANG_SCAN_DEPS=clang-scan-deps-22
+          - preset: windows-msvc
+            os: windows-2025-vs2026
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install compiler
+        if: matrix.packages
+        run: sudo apt-get update && sudo apt-get install -y ${{ matrix.packages }}
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+
+      - name: Tool versions
+        run: cmake --version && ninja --version
+
+      - uses: ./.github/actions/setup-vcpkg
+        with:
+          cache-key: ${{ matrix.preset }}
+
+      # The presets are multi-config: one configure serves both configurations.
+      - name: Configure
+        id: configure
+        run: cmake --preset ${{ matrix.preset }} -DAEST_BUILD_EXAMPLES=ON -DAEST_WARNINGS_AS_ERRORS=ON ${{ matrix.cmake-args }}
+
+      - name: Build (Debug)
+        run: cmake --build --preset ${{ matrix.preset }}-debug
+
+      - name: Test (Debug)
+        run: ctest --preset ${{ matrix.preset }}-debug
+
+      # Release runs even when Debug fails, so one run reports both.
+      - name: Build (Release)
+        id: build-release
+        if: ${{ !cancelled() && steps.configure.outcome == 'success' }}
+        run: cmake --build --preset ${{ matrix.preset }}-release
+
+      - name: Test (Release)
+        if: ${{ !cancelled() && steps.build-release.outcome == 'success' }}
+        run: ctest --preset ${{ matrix.preset }}-release
+
+  ports:
+    name: ports (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-26.04
+            packages: g++-16
+            cmake-args: -DCMAKE_CXX_COMPILER=g++-16
+          - os: windows-2025-vs2026
+            cmake-args: -DCMAKE_CXX_COMPILER=cl
+    env:
+      # Build the ports from this checkout rather than from their pinned commit.
+      AEST_SOURCE_DIR: ${{ github.workspace }}
+      VCPKG_KEEP_ENV_VARS: AEST_SOURCE_DIR
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install compiler
+        if: matrix.packages
+        run: sudo apt-get update && sudo apt-get install -y ${{ matrix.packages }}
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+
+      # The ports build from local sources, which are not part of their ABI
+      # hash: binary caching would serve stale packages.
+      - name: Configure consumer project
+        run: >-
+          cmake -S tests/package -B build/package -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DVCPKG_INSTALL_OPTIONS=--no-binarycaching
+          ${{ matrix.cmake-args }}
+
+      - name: Build consumer project
+        run: cmake --build build/package
+
+      - name: Run consumer project
+        run: ctest --test-dir build/package --output-on-failure
+
+  docs:
+    runs-on: ubuntu-26.04
+    env:
+      DOXYGEN_VERSION: 1.18.0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install compiler
+        run: sudo apt-get update && sudo apt-get install -y g++-16
+
+      - name: Install Doxygen
+        run: |
+          tag="Release_${DOXYGEN_VERSION//./_}"
+          curl -fsSL "https://github.com/doxygen/doxygen/releases/download/$tag/doxygen-$DOXYGEN_VERSION.linux.bin.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/doxygen-$DOXYGEN_VERSION/bin" >> "$GITHUB_PATH"
+
+      # Configuring without vcpkg: docs need no dependencies.
+      - name: Configure
+        run: >-
+          cmake -S . -B build/docs -G Ninja -DCMAKE_CXX_COMPILER=g++-16
+          -DAEST_USE_VCPKG=OFF -DAEST_BUILD_TESTS=OFF -DAEST_BUILD_DOCS=ON -DAEST_WARNINGS_AS_ERRORS=ON
+
+      - name: Build documentation
+        run: cmake --build build/docs --target aest_docs
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docs
+          path: build/docs/docs/html

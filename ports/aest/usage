@@ -1,0 +1,7 @@
+aest provides the umbrella module `aest`, re-exporting every aest.<lib> module:
+
+  find_package(aest CONFIG REQUIRED)
+  target_link_libraries(main PRIVATE aest::aest)
+
+  // C++
+  import aest;

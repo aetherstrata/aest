@@ -1,0 +1,61 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 30, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja Multi-Config",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "installDir": "${sourceDir}/build/${presetName}/install",
+      "cacheVariables": {
+        "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "linux",
+      "hidden": true,
+      "inherits": "base",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
+    },
+    {
+      "name": "linux-gcc",
+      "displayName": "Linux GCC",
+      "inherits": "linux",
+      "cacheVariables": { "CMAKE_CXX_COMPILER": "g++" }
+    },
+    {
+      "name": "linux-clang",
+      "displayName": "Linux Clang",
+      "inherits": "linux",
+      "cacheVariables": { "CMAKE_CXX_COMPILER": "clang++" }
+    },
+    {
+      "name": "windows-msvc",
+      "displayName": "Windows MSVC",
+      "description": "Run from a Visual Studio developer prompt (x64).",
+      "inherits": "base",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+      "architecture": { "value": "x64", "strategy": "external" },
+      "cacheVariables": { "CMAKE_CXX_COMPILER": "cl" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "linux-gcc-debug", "configurePreset": "linux-gcc", "configuration": "Debug" },
+    { "name": "linux-gcc-release", "configurePreset": "linux-gcc", "configuration": "Release" },
+    { "name": "linux-clang-debug", "configurePreset": "linux-clang", "configuration": "Debug" },
+    { "name": "linux-clang-release", "configurePreset": "linux-clang", "configuration": "Release" },
+    { "name": "windows-msvc-debug", "configurePreset": "windows-msvc", "configuration": "Debug" },
+    { "name": "windows-msvc-release", "configurePreset": "windows-msvc", "configuration": "Release" }
+  ],
+  "testPresets": [
+    { "name": "base", "hidden": true, "output": { "outputOnFailure": true } },
+    { "name": "linux-gcc-debug", "inherits": "base", "configurePreset": "linux-gcc", "configuration": "Debug" },
+    { "name": "linux-gcc-release", "inherits": "base", "configurePreset": "linux-gcc", "configuration": "Release" },
+    { "name": "linux-clang-debug", "inherits": "base", "configurePreset": "linux-clang", "configuration": "Debug" },
+    { "name": "linux-clang-release", "inherits": "base", "configurePreset": "linux-clang", "configuration": "Release" },
+    { "name": "windows-msvc-debug", "inherits": "base", "configurePreset": "windows-msvc", "configuration": "Debug" },
+    { "name": "windows-msvc-release", "inherits": "base", "configurePreset": "windows-msvc", "configuration": "Release" }
+  ]
+}
