@@ -1,0 +1,27 @@
+---
+# General modifiers
+BasedOnStyle: Microsoft
+Standard: c++20
+IndentWidth: 4
+ColumnLimit: 100
+InsertNewlineAtEOF: true
+LineEnding: LF
+AccessModifierOffset: -4
+
+
+AllowShortFunctionsOnASingleLine: Inline
+PackParameters:
+  BinPack: OnePerLine
+BraceWrapping:
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+BreakBeforeBinaryOperators: NonAssignment
+AlignOperands: AlignAfterOperator
+AlignConsecutiveAssignments: Consecutive
+BreakConstructorInitializers: BeforeComma
+PackConstructorInitializers: Never
+AlwaysBreakTemplateDeclarations: Yes
+FixNamespaceComments: true
+NamespaceIndentation: None
+PointerAlignment: Left
+IncludeBlocks: Regroup

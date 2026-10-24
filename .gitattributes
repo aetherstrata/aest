@@ -1,0 +1,10 @@
+# Normalize text files to LF in the repo and in every checkout, whatever the
+# local core.autocrlf says
+* text=auto eol=lf
+
+# Windows scripts keep CRLF: cmd.exe misparses labels and gotos in LF batch files
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+*.psd1 text eol=crlf

@@ -1,0 +1,27 @@
+name: Set up vcpkg
+description: >-
+  Restores the vcpkg binary cache for the vcpkg submodule. The submodule must
+  be checked out; the CMake toolchain bootstraps vcpkg itself.
+inputs:
+  cache-key:
+    description: Extra key distinguishing the binary cache (e.g. the toolchain).
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Prepare binary cache
+      id: vcpkg
+      shell: bash
+      run: |
+        cache="$RUNNER_TEMP/vcpkg-cache"
+        if [[ "$RUNNER_OS" == "Windows" ]]; then cache=$(cygpath -m "$cache"); fi
+        mkdir -p "$cache"
+        echo "VCPKG_DEFAULT_BINARY_CACHE=$cache" >> "$GITHUB_ENV"
+        echo "commit=$(git rev-parse HEAD:vcpkg)" >> "$GITHUB_OUTPUT"
+
+    - name: Restore vcpkg binary cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}/vcpkg-cache
+        key: vcpkg-${{ runner.os }}-${{ inputs.cache-key }}-${{ steps.vcpkg.outputs.commit }}-${{ hashFiles('vcpkg.json') }}
+        restore-keys: vcpkg-${{ runner.os }}-${{ inputs.cache-key }}-

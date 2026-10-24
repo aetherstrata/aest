@@ -1,0 +1,7 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+@AEST_PACKAGE_DEPENDENCIES@
+include("${CMAKE_CURRENT_LIST_DIR}/@AEST_PACKAGE@-targets.cmake")
+
+check_required_components(@AEST_PACKAGE@)
