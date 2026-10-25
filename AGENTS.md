@@ -68,7 +68,8 @@ The umbrella is named plain `aest` at every layer and only re-exports.
 ## Build and test
 
 vcpkg comes from the `vcpkg/` submodule (`git submodule update --init`), or
-from `$VCPKG_ROOT` when set (`cmake/VcpkgToolchain.cmake`). Presets are
+from `$VCPKG_ROOT` when set, unless it is a bundled copy such as the one a
+Visual Studio developer prompt sets (`cmake/VcpkgToolchain.cmake`). Presets are
 multi-config: configure `linux-gcc` / `linux-clang` / `windows-msvc`,
 then build/test `<preset>-debug` or `<preset>-release`.
 
@@ -129,7 +130,9 @@ The repo doubles as a vcpkg git registry (`ports/` + `versions/`). Version
 lives in `project(VERSION)` and in each `ports/*/vcpkg.json`; keep them
 equal. Publishing is `scripts/update-registry.sh` on a clean tree after
 bumping versions; it rewrites the ports' `REF`, then regenerates `versions/`
-— both as commits. The `vcpkg/` submodule commit is the only pin of the
-microsoft/vcpkg ports and tools (the manifests set no baseline); update it
-with `git -C vcpkg fetch --depth 1 origin <commit> && git -C vcpkg checkout
-<commit>`.
+— both as commits. The microsoft/vcpkg ports are pinned by the `baseline`
+in `vcpkg-configuration.json` and `tests/package/vcpkg-configuration.json`;
+it must equal the `vcpkg/` submodule commit, since the shallow submodule
+holds no other commit. Move all three together: `git -C vcpkg fetch --depth
+1 origin <commit> && git -C vcpkg checkout <commit>`, then set both
+baselines to `<commit>`.
