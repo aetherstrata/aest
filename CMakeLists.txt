@@ -30,7 +30,7 @@ if(AEST_BUILD_TESTS)
 endif()
 
 project(aest
-    VERSION 0.1.0
+    VERSION 0.0.1
     DESCRIPTION "Collection of C++ utility libraries"
     HOMEPAGE_URL "https://github.com/aetherstrata/aest"
     LANGUAGES CXX)

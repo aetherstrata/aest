@@ -68,9 +68,9 @@ The umbrella is named plain `aest` at every layer and only re-exports.
 ## Build and test
 
 vcpkg comes from the `vcpkg/` submodule (`git submodule update --init`), or
-from `$VCPKG_ROOT` when set, unless it is a bundled copy such as the one a
-Visual Studio developer prompt sets (`cmake/VcpkgToolchain.cmake`). Presets are
-multi-config: configure `linux-gcc` / `linux-clang` / `windows-msvc`,
+from `$VCPKG_ROOT` when set (`cmake/VcpkgToolchain.cmake`); a bundled copy such
+as Visual Studio's also works, since the `baseline` in
+`vcpkg-configuration.json` pins the ports. Presets are multi-config: configure `linux-gcc` / `linux-clang` / `windows-msvc`,
 then build/test `<preset>-debug` or `<preset>-release`.
 
 Work is done when all of these hold, as CI checks them:

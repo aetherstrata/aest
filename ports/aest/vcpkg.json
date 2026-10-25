@@ -1,14 +1,14 @@
 {
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "aest",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Metapackage of the aest C++ utility libraries: the umbrella 'aest' module re-exporting every aest.<lib> module.",
   "homepage": "https://github.com/aetherstrata/aest",
   "license": "MIT",
   "dependencies": [
     {
       "name": "aest-colors",
-      "version>=": "0.1.0"
+      "version>=": "0.0.1"
     },
     {
       "name": "vcpkg-cmake",

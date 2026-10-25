@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "aest-colors",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Color types and conversions (C++20 module aest.colors).",
   "homepage": "https://github.com/aetherstrata/aest",
   "license": "MIT",
