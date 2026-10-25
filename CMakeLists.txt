@@ -57,6 +57,12 @@ endif()
 
 if(AEST_BUILD_DOCS)
     find_package(Doxygen REQUIRED)
+    include(FetchContent)
+    FetchContent_Declare(doxygen_awesome_css
+        URL https://github.com/jothepro/doxygen-awesome-css/archive/refs/tags/v2.5.0.tar.gz
+        URL_HASH SHA256=959b6e9369a0f5c7c0a9beba34b18a02bc5e788e68f6733975908f133a784dd5)
+    FetchContent_MakeAvailable(doxygen_awesome_css)
+    set(AEST_DOXYGEN_AWESOME_DIR "${doxygen_awesome_css_SOURCE_DIR}")
     set(AEST_DOXYGEN_INPUT "\"${CMAKE_CURRENT_SOURCE_DIR}/README.md\" \"${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.md\"")
     foreach(lib IN LISTS AEST_ALL_LIBS ITEMS aest)
         foreach(dir README.md src docs include)

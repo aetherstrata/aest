@@ -1,0 +1,21 @@
+/*
+ * Extra Doxygen stylesheet, loaded after doxygen-awesome-css.
+ *
+ * The sidebar lists only the pages and their headings: the generated
+ * indexes (Modules, Namespaces, Concepts, ...) stay in the top menu bar.
+ * Doxygen fills both from the same navindex, so the sidebar entries are
+ * hidden here; navtree.js gives each link a class named after its page.
+ */
+#nav-tree-contents li:has(> .item a:is(
+    .topics\.html,
+    .modules\.html,
+    .namespaces\.html,
+    .concepts\.html,
+    .annotated\.html,
+    .interfaces\.html,
+    .structs\.html,
+    .exceptions\.html,
+    .files\.html,
+    .examples\.html)) {
+    display: none;
+}

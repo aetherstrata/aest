@@ -80,6 +80,6 @@ ctest --preset linux-gcc-debug
 | `AEST_WARNINGS_AS_ERRORS` | `OFF`      | Treat warnings as errors (on in CI)    |
 | `AEST_USE_VCPKG`          | `ON`       | Use vcpkg for dependencies             |
 
-## License
+---
 
-[MIT](LICENSE.md)
+Licensed under the [MIT License](LICENSE.md).

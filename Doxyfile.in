@@ -30,4 +30,11 @@ WARN_AS_ERROR          = @AEST_DOXYGEN_WARN_AS_ERROR@
 GENERATE_HTML          = YES
 GENERATE_LATEX         = NO
 GENERATE_TREEVIEW      = YES
+
+# doxygen-awesome-css theme, fetched by CMake.
+DISABLE_INDEX          = NO
+FULL_SIDEBAR           = NO
+HTML_COLORSTYLE        = LIGHT
+HTML_EXTRA_STYLESHEET  = "@AEST_DOXYGEN_AWESOME_DIR@/doxygen-awesome.css" \
+                         "@CMAKE_CURRENT_SOURCE_DIR@/doxygen-custom.css"
 SOURCE_BROWSER         = YES
