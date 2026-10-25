@@ -1,21 +1,34 @@
 /*
  * Extra Doxygen stylesheet, loaded after doxygen-awesome-css.
  *
- * The sidebar lists only the pages and their headings: the generated
- * indexes (Modules, Namespaces, Concepts, ...) stay in the top menu bar.
- * Doxygen fills both from the same navindex, so the sidebar entries are
- * hidden here; navtree.js gives each link a class named after its page.
+ * The sidebar lists the pages first, then the generated indexes (Topics,
+ * Modules, Namespaces, ...). The first index after a page gets a separator
+ * and an "API reference" caption, so the two groups read apart.
+ * navtree.js gives each link a class named after its page, and nests the
+ * top-level entries under the main page's list.
  */
-#nav-tree-contents li:has(> .item a:is(
-    .topics\.html,
-    .modules\.html,
-    .namespaces\.html,
-    .concepts\.html,
-    .annotated\.html,
-    .interfaces\.html,
-    .structs\.html,
-    .exceptions\.html,
-    .files\.html,
-    .examples\.html)) {
-    display: none;
+#nav-tree-contents > ul > li > ul > li:not(:has(> .item > .label > a:is(
+    .topics\.html, .modules\.html, .namespaces\.html, .concepts\.html,
+    .annotated\.html, .interfaces\.html, .structs\.html, .exceptions\.html,
+    .files\.html, .examples\.html)))
++ li:has(> .item > .label > a:is(
+    .topics\.html, .modules\.html, .namespaces\.html, .concepts\.html,
+    .annotated\.html, .interfaces\.html, .structs\.html, .exceptions\.html,
+    .files\.html, .examples\.html))
+{
+    margin-top: var(--spacing-large);
+    padding-top: var(--spacing-medium);
+    border-top: 1px solid var(--separator-color);
+
+    /* Aligned with the labels: navtree.js indents each level by 16px. */
+    &::before {
+        content: "API reference";
+        display: block;
+        padding: 0 0 var(--spacing-small) 32px;
+        color: var(--page-secondary-foreground-color);
+        font-size: 0.75em;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
 }
