@@ -100,7 +100,7 @@ Done when every step below is applied and both the preset build and the
 
 1. Create `<lib>/` with `CMakeLists.txt` (`aest_add_library`,
    `add_subdirectory(tests)`, `aest_add_examples`), `README.md`,
-   `src/lib.ixx`, `tests/`, `examples/`, `docs/` — mirror
+   `src/lib.ixx`, `tests/`, `examples/`, `docs/`, mirror
    `colors/`.
 2. Append `<lib>` to `AEST_ALL_LIBS` in the root `CMakeLists.txt`, after any
    library it depends on; declare those as `DEPENDS aest::<dep>`.
@@ -128,11 +128,12 @@ Commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 The repo doubles as a vcpkg git registry (`ports/` + `versions/`). Version
 lives in `project(VERSION)` and in each `ports/*/vcpkg.json`; keep them
-equal. Publishing is `scripts/update-registry.sh` on a clean tree after
-bumping versions; it rewrites the ports' `REF`, then regenerates `versions/`
-— both as commits. The microsoft/vcpkg ports are pinned by the `baseline`
-in `vcpkg-configuration.json` and `tests/package/vcpkg-configuration.json`;
-it must equal the `vcpkg/` submodule commit, since the shallow submodule
-holds no other commit. Move all three together: `git -C vcpkg fetch --depth
-1 origin <commit> && git -C vcpkg checkout <commit>`, then set both
-baselines to `<commit>`.
+equal. Publishing is `scripts/update-registry.sh <version>` on a clean tree:
+it sets `<version>` everywhere and commits it as the release, rewrites the
+ports' `REF` to that commit, regenerates `versions/`, each as a commit,
+and tags the release `v<version>`. Then push `main` and the tag. The microsoft/vcpkg
+ports are pinned by the `baseline` in `vcpkg-configuration.json` and 
+`tests/package/vcpkg-configuration.json`; it must equal the `vcpkg/` submodule 
+commit, since the shallow submodule holds no other commit. Move all three together:
+`git -C vcpkg fetch --depth 1 origin <commit> && git -C vcpkg checkout <commit>`, 
+then set both baselines to `<commit>`.
