@@ -1,3 +1,12 @@
 {
-  "default": {}
+  "default": {
+    "aest": {
+      "baseline": "0.0.1",
+      "port-version": 0
+    },
+    "aest-colors": {
+      "baseline": "0.0.1",
+      "port-version": 0
+    }
+  }
 }
