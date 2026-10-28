@@ -96,6 +96,7 @@ concept LightnessSpace = ColorType<T> && requires(const T& color, const float va
  * @return The lightened color.
  */
 template <LightnessSpace Space = HSL, ColorType Color>
+    requires ConvertibleTo<Space, Color> && ConvertibleTo<Color, Space>
 constexpr Color lighten(const Color& color,
                         const float amount,
                         [[maybe_unused]] In<Space> space = {})
@@ -122,6 +123,7 @@ constexpr Color lighten(const Color& color,
  * @return The darkened color.
  */
 template <LightnessSpace Space = HSL, ColorType Color>
+    requires ConvertibleTo<Space, Color> && ConvertibleTo<Color, Space>
 constexpr Color darken(const Color& color,
                        const float amount,
                        [[maybe_unused]] In<Space> space = {})
@@ -204,6 +206,7 @@ concept InterpolationSpace = ColorType<T> && requires(const T& color, const floa
  * @return The blended color.
  */
 template <InterpolationSpace Space = LinearRGB, ColorType Color>
+    requires ConvertibleTo<Space, Color> && ConvertibleTo<Color, Space>
 constexpr Color mix(const Color& from,
                     const Color& to,
                     const float amount,

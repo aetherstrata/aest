@@ -107,6 +107,7 @@ concept EuclideanSpace = ColorType<T> && requires(const T& color) {
  * @return The distance, in the 0-sqrt(3) range for RGB and LinearRGB.
  */
 template <EuclideanSpace Space = RGB, ColorType Color1, ColorType Color2>
+    requires ConvertibleTo<Space, Color1> && ConvertibleTo<Space, Color2>
 float euclidean(const Color1& color1, const Color2& color2, [[maybe_unused]] In<Space> space = {})
 {
     return Euclidean<Space>::distance(convert<Space>(color1), convert<Space>(color2));

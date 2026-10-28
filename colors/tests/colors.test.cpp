@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <format>
 #include <string>
+#include <string_view>
 #include <type_traits>
 
 import aest.colors;
@@ -352,6 +353,77 @@ TEST_CASE("Hue-based conversions are constant expressions", "[colors][conversion
     STATIC_REQUIRE(convert<HSL>(HSV{210.f, 0.5f, 0.75f}).hue() == 210.f);
 }
 
+TEST_CASE("Conversions chain through the conversion tree", "[colors][conversions]")
+{
+    using aest::colors::convert;
+
+    const HSL hsl{210.f, 0.5f, 0.5f, 0.25f};
+    const LinearRGB linear = convert<LinearRGB>(hsl);
+    CHECK(linear == convert<LinearRGB>(convert<RGB>(hsl)));
+    CHECK(linear.alpha() == 0.25f);
+
+    const HSV hsv = convert<HSV>(linear);
+    CHECK(hsv == convert<HSV>(convert<RGB>(linear)));
+    CHECK_THAT(hsv.hue(), WithinAbs(210., 1e-3));
+}
+
+namespace
+{
+/** @brief A color space outside the conversion tree, with no converters. */
+struct Gray
+{
+    static constexpr std::string_view TYPE = "Gray"; ///< Color space name.
+
+    /**
+     * @brief Construct a gray from channel values; only the first one is kept.
+     * @param[in] value Gray level
+     * @param[in] unused1 Ignored
+     * @param[in] unused2 Ignored
+     * @param[in] alphaValue Alpha channel value
+     */
+    constexpr Gray(const float value,
+                   [[maybe_unused]] const float unused1,
+                   [[maybe_unused]] const float unused2,
+                   const float alphaValue = 1.f)
+        : _value(value)
+        , _alpha(alphaValue)
+    {}
+
+    /** @brief Alpha channel. @return The alpha value. */
+    [[nodiscard]] constexpr float alpha() const { return _alpha; }
+    /** @brief First channel. @return The gray level. */
+    [[nodiscard]] constexpr float ch1() const { return _value; }
+    /** @brief Second channel. @return The gray level. */
+    [[nodiscard]] constexpr float ch2() const { return _value; }
+    /** @brief Third channel. @return The gray level. */
+    [[nodiscard]] constexpr float ch3() const { return _value; }
+
+    float _value; ///< Gray level
+    float _alpha; ///< Alpha channel value
+};
+} // namespace
+
+TEST_CASE("ConvertibleTo follows converters and the conversion tree", "[colors][conversions]")
+{
+    using aest::colors::ConvertibleTo;
+
+    STATIC_REQUIRE(aest::colors::ColorType<Gray>);
+    STATIC_REQUIRE(ConvertibleTo<HSV, HSL>);
+    STATIC_REQUIRE(ConvertibleTo<LinearRGB, HSL>);
+    STATIC_REQUIRE(ConvertibleTo<HSV, LinearRGB>);
+    STATIC_REQUIRE(ConvertibleTo<Gray, Gray>);
+    STATIC_REQUIRE_FALSE(ConvertibleTo<RGB, Gray>);
+    STATIC_REQUIRE_FALSE(ConvertibleTo<Gray, HSL>);
+}
+
+TEST_CASE("HSL and HSV clamp saturation, lightness and value", "[colors]")
+{
+    STATIC_REQUIRE(HSL{0.f, 2.f, -1.f} == HSL{0.f, 1.f, 0.f});
+    STATIC_REQUIRE(HSV{0.f, -1.f, 2.f} == HSV{0.f, 0.f, 1.f});
+    STATIC_REQUIRE(HSL{} == HSL{0.f, 0.f, 0.f, 1.f});
+    STATIC_REQUIRE(HSV{} == HSV{0.f, 0.f, 0.f, 1.f});
+}
+
 TEST_CASE("opacity replaces alpha and keeps the channels", "[colors]")
 {
     constexpr RGB color{0.25f, 0.5f, 0.75f};
@@ -493,6 +565,35 @@ TEST_CASE("The working space is chosen with in<Space>", "[colors][operations]")
 
     STATIC_REQUIRE(CanLightenIn<HSL>);
     STATIC_REQUIRE_FALSE(CanLightenIn<RGB>);
+}
+
+TEST_CASE("Operations convert through the conversion tree", "[colors][operations]")
+{
+    using aest::colors::convert;
+    using aest::colors::euclidean;
+    using aest::colors::in;
+    using aest::colors::lighten;
+    using aest::colors::mix;
+
+    const LinearRGB linear{0.2f, 0.4f, 0.6f, 0.5f};
+    const LinearRGB light    = lighten(linear, 0.5f);
+    const LinearRGB expected = convert<LinearRGB>(lighten(convert<RGB>(linear), 0.5f));
+    CHECK_THAT(light.red(), WithinAbs(expected.red(), 1e-6));
+    CHECK_THAT(light.green(), WithinAbs(expected.green(), 1e-6));
+    CHECK_THAT(light.blue(), WithinAbs(expected.blue(), 1e-6));
+    CHECK(light.alpha() == 0.5f);
+
+    // Mixing HSL colors blends their light in LinearRGB
+    const HSL red{0.f, 1.f, 0.5f};
+    const HSL blue{240.f, 1.f, 0.5f};
+    const RGB blended = convert<RGB>(mix(red, blue, 0.5f));
+    const RGB viaRgb  = mix(convert<RGB>(red), convert<RGB>(blue), 0.5f);
+    CHECK_THAT(blended.red(), WithinAbs(viaRgb.red(), 1e-5));
+    CHECK_THAT(blended.green(), WithinAbs(viaRgb.green(), 1e-5));
+    CHECK_THAT(blended.blue(), WithinAbs(viaRgb.blue(), 1e-5));
+
+    // Red and green are a full channel apart in each of two channels
+    CHECK_THAT(euclidean(red, HSV{120.f, 1.f, 1.f}, in<LinearRGB>), WithinAbs(1.414214, 1e-5));
 }
 
 TEST_CASE("mix blends in LinearRGB by default", "[colors][operations]")

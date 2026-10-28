@@ -86,7 +86,7 @@ constexpr std::uint32_t pack(const std::uint8_t byte3,
  */
 constexpr float wrap_hue(const float hue)
 {
-    /** @brief Degrees in a full turn of the hue circle. */
+    // Degrees in a full turn of the hue circle
     constexpr double fullTurn = 360.;
 
     // std::fmod is constexpr only since C++23. The quotient is truncated in double,
@@ -108,7 +108,7 @@ constexpr float wrap_hue(const float hue)
 export template <typename Derived>
 struct ColorBase
 {
-    /** @brief Lets the derived color reach the private constructor and channels. */
+    /// Lets the derived color reach the private constructor and channels.
     friend Derived;
 
 private:
@@ -177,12 +177,12 @@ public:
      */
     [[nodiscard]] constexpr Derived opacity(const float alpha) const
     {
-        return Derived{_ch1, _ch2, _ch3, clamp(alpha)};
+        return Derived{_ch1, _ch2, _ch3, alpha};
     }
 
     /// @}
-    ///@name Identity operators
-    ///@{
+    /// @name Identity operators
+    /// @{
     /**
      * @brief Compare two colors of same type by checking each channel for equality.
      * @param[in] color1 First color
@@ -309,6 +309,7 @@ public:
      * @param[in] g Green channel value
      * @param[in] b Blue channel value
      * @param[in] a Alpha channel value (default 1.0)
+     * @pre Every channel is finite: NaN and infinities are undefined behavior.
      */
     constexpr RGB(const float r, const float g, const float b, const float a = 1.0f)
         : ColorBase(a, clamp(r), clamp(g), clamp(b))
@@ -441,6 +442,7 @@ public:
      * @param[in] g Green channel value
      * @param[in] b Blue channel value
      * @param[in] a Alpha channel value (default 1.0)
+     * @pre Every channel is finite: NaN and infinities are undefined behavior.
      */
     constexpr LinearRGB(const float r, const float g, const float b, const float a = 1.0f)
         : ColorBase(a, clamp(r), clamp(g), clamp(b))
@@ -472,7 +474,7 @@ public:
  * @brief A color as hue, saturation and lightness, over sRGB.
  *
  * The hue is wrapped to the [0, 360) range; saturation and lightness are
- * stored as given. Convert from and to RGB or HSV with convert().
+ * clamped to the 0-1 range. Convert to any other space with convert().
  */
 export class HSL final : public ColorBase<HSL>
 {
@@ -480,15 +482,21 @@ public:
     /** @brief Color space name, used by the std::formatter specialization. */
     static constexpr std::string_view TYPE = "HSL";
 
+    /** @brief Default constructor initializes the color to opaque black (0, 0, 0, 1). */
+    constexpr HSL()
+        : ColorBase(1.0f, 0.0f, 0.0f, 0.0f)
+    {}
+
     /**
      * @brief Construct a color from floating-point HSLA values.
      * @param[in] h Hue in degrees, wrapped to the 0-360 range
      * @param[in] s Saturation value
      * @param[in] l Lightness value
      * @param[in] a Alpha channel value (default 1.0)
+     * @pre Every channel is finite: NaN and infinities are undefined behavior.
      */
     constexpr HSL(const float h, const float s, const float l, const float a = 1.0f)
-        : ColorBase(a, wrap_hue(h), s, l)
+        : ColorBase(a, wrap_hue(h), clamp(s), clamp(l))
     {}
 
     ///@name Color Channels
@@ -516,8 +524,8 @@ public:
 /**
  * @brief A color as hue, saturation and value (brightness), over sRGB.
  *
- * The hue is wrapped to the [0, 360) range; saturation and value are stored
- * as given. Convert from and to RGB or HSL with convert().
+ * The hue is wrapped to the [0, 360) range; saturation and value are
+ * clamped to the 0-1 range. Convert to any other space with convert().
  */
 export class HSV final : public ColorBase<HSV>
 {
@@ -525,15 +533,21 @@ public:
     /** @brief Color space name, used by the std::formatter specialization. */
     static constexpr std::string_view TYPE = "HSV";
 
+    /** @brief Default constructor initializes the color to opaque black (0, 0, 0, 1). */
+    constexpr HSV()
+        : ColorBase(1.0f, 0.0f, 0.0f, 0.0f)
+    {}
+
     /**
      * @brief Construct a color from floating-point HSVA values.
      * @param[in] h Hue in degrees, wrapped to the 0-360 range
      * @param[in] s Saturation value
      * @param[in] v Brightness value
      * @param[in] a Alpha channel value (default 1.0)
+     * @pre Every channel is finite: NaN and infinities are undefined behavior.
      */
     constexpr HSV(const float h, const float s, const float v, const float a = 1.0f)
-        : ColorBase(a, wrap_hue(h), s, v)
+        : ColorBase(a, wrap_hue(h), clamp(s), clamp(v))
     {}
 
     ///@name Color Channels
@@ -568,6 +582,8 @@ public:
  * - float ch2() const
  * - float ch3() const
  * - a static TYPE convertible to std::string_view
+ * - a constructor taking `(ch1, ch2, ch3, alpha)`, used by the operations
+ *   to build results
  */
 export template <typename T>
 concept ColorType = requires(const T& color) {
@@ -576,5 +592,5 @@ concept ColorType = requires(const T& color) {
     { color.ch2() } -> std::same_as<float>;
     { color.ch3() } -> std::same_as<float>;
     { T::TYPE } -> std::convertible_to<std::string_view>;
-};
+} && std::constructible_from<T, float, float, float, float>;
 } // namespace aest::colors

@@ -7,6 +7,7 @@
 module;
 #include <algorithm>
 #include <cmath>
+#include <concepts>
 #include <cstdint>
 #include <numeric>
 #include <type_traits>
@@ -14,60 +15,268 @@ export module aest.colors:converter;
 
 import :color;
 
+namespace aest::colors
+{
 /** @brief Exponent of the sRGB transfer function. */
-static constexpr float SRGB_GAMMA = 2.4f;
+constexpr float SRGB_GAMMA = 2.4f;
 
 /**
- * @brief Always `false`, but dependent on @p T so a `static_assert` using it
- *        only fires when the enclosing template is instantiated.
- * @tparam T Any type, used only to make the value dependent
- * @note Needed because the library targets C++20: a plain
- *       `static_assert(false)` in a template is only allowed from C++23
- *       (P2593). Before that it makes the template ill-formed even if it is
- *       never instantiated, and only some compilers accept it as extension.
+ * @brief Hue of an sRGB color, shared by the HSL and HSV conversions.
+ * @param[in] r Red channel value
+ * @param[in] g Green channel value
+ * @param[in] b Blue channel value
+ * @param[in] max The largest of @p r, @p g and @p b
+ * @param[in] delta @p max minus the smallest channel value
+ * @return The hue in degrees, in the [-60, 300) range; 0 when @p delta is 0.
+ *         The color constructors wrap negative hues.
  */
-template <typename T>
-constexpr bool ALWAYS_FALSE = false;
+constexpr float hue_of(
+    const float r, const float g, const float b, const float max, const float delta)
+{
+    if (delta == 0)
+        return 0;
+    if (max == r)
+        return 60.0f * ((g - b) / delta);
+    if (max == g)
+        return 60.0f * ((b - r) / delta + 2);
+    return 60.0f * ((r - g) / delta + 4);
+}
+
+/**
+ * @brief Builds an sRGB color from a hue, a chroma and an offset, shared by
+ *        the HSL and HSV conversions.
+ * @param[in] hue The hue in degrees, in the [0, 360) range
+ * @param[in] chroma Difference between the largest and smallest channel
+ * @param[in] offset Value of the smallest channel
+ * @param[in] alpha Alpha channel value
+ * @return The RGB color.
+ */
+constexpr RGB rgb_from_hue(const float hue,
+                           const float chroma,
+                           const float offset,
+                           const float alpha)
+{
+    // Distance from the middle of the current pair of 60 degree sectors;
+    // std::fmod and std::fabs are constexpr only since C++23
+    const float sector   = hue / 60.0f;
+    const float distance = sector - 2 * static_cast<std::int32_t>(sector / 2) - 1;
+    const float second   = chroma * (1 - (distance < 0 ? -distance : distance));
+
+    float r = 0, g = 0, b = 0;
+    if (hue < 60)
+    {
+        r = chroma;
+        g = second;
+    }
+    else if (hue < 120)
+    {
+        r = second;
+        g = chroma;
+    }
+    else if (hue < 180)
+    {
+        g = chroma;
+        b = second;
+    }
+    else if (hue < 240)
+    {
+        g = second;
+        b = chroma;
+    }
+    else if (hue < 300)
+    {
+        r = second;
+        b = chroma;
+    }
+    else
+    {
+        r = chroma;
+        b = second;
+    }
+
+    return RGB{r + offset, g + offset, b + offset, alpha};
+}
+} // namespace aest::colors
 
 export namespace aest::colors
 {
 /**
- * @brief Template struct for converting colors between different color spaces.
+ * @brief Converts colors from one color space to another.
  *
- * Specializations of this struct should implement the static convert method
- * for specific color space conversions.
+ * The primary template is only declared: specialize it for each conversion a
+ * color space provides directly, with a static `convert` method. Every space
+ * needs at least the conversions to and from its ParentSpace; convert()
+ * reaches every other space of the tree through them. Other specializations
+ * are shortcuts, preferred over the path through the tree.
+ *
+ * Specializations must be visible before the conversion is first used:
+ * concepts such as ConvertibleTo are evaluated once per translation unit.
  *
  * @tparam ColorOut The desired output color space.
  * @tparam ColorIn The input color space.
  */
 template <ColorType ColorOut, ColorType ColorIn>
-struct Converter
+struct Converter;
+
+/**
+ * @brief Names the color space a space converts through, joining every space
+ *        in one tree.
+ *
+ * The primary template is only declared: a space without a specialization is
+ * a root. A specialization holds the parent as `type`, and requires the
+ * Converter specializations to and from that parent.
+ *
+ * @tparam Space The color space.
+ */
+template <ColorType Space>
+struct ParentSpace;
+} // namespace aest::colors
+
+namespace aest::colors
 {
-    /**
-     * @brief Converts a color from one color space to another.
-     *
-     * @param[in] color The input color of type ColorIn to be converted.
-     * @return The converted color of type ColorOut.
-     */
-    static constexpr ColorOut convert([[maybe_unused]] const ColorIn& color)
-    {
-        static_assert(ALWAYS_FALSE<ColorOut>,
-                      "Conversion not implemented between the specified color types. "
-                      "Please implement a specialization of the Converter template. ");
-    }
+/**
+ * @brief A color space with a parent in the conversion tree.
+ * @tparam T The type to check
+ */
+template <typename T>
+concept HasParentSpace = ColorType<T> && requires { typename ParentSpace<T>::type; };
+
+/**
+ * @brief A pair of color spaces with a Converter specialization between them.
+ * @tparam ColorOut The output color space
+ * @tparam ColorIn The input color space
+ */
+template <typename ColorOut, typename ColorIn>
+concept DirectConverter = requires(const ColorIn& color) {
+    { Converter<ColorOut, ColorIn>::convert(color) } -> std::same_as<ColorOut>;
 };
 
 /**
+ * @brief Whether @p Ancestor is @p Space or one of its ancestors in the
+ *        conversion tree.
+ * @tparam Ancestor The candidate ancestor
+ * @tparam Space The color space whose ancestors are searched
+ */
+template <typename Ancestor, typename Space>
+constexpr bool IsAncestorOrSelf = [] {
+    if constexpr (std::is_same_v<Ancestor, Space>)
+        return true;
+    else if constexpr (HasParentSpace<Space>)
+        return IsAncestorOrSelf<Ancestor, typename ParentSpace<Space>::type>;
+    else
+        return false;
+}();
+
+/**
+ * @brief The closest common ancestor of two color spaces, as `type`; no
+ *        `type` when they are in different trees.
+ * @tparam From The space whose ancestors are tried, closest first
+ * @tparam To The other space
+ */
+template <typename From, typename To>
+struct CommonAncestor
+{};
+
+/**
+ * @brief The common ancestor when @p From is itself an ancestor of @p To.
+ * @tparam From The space whose ancestors are tried, closest first
+ * @tparam To The other space
+ */
+template <typename From, typename To>
+    requires IsAncestorOrSelf<From, To>
+struct CommonAncestor<From, To>
+{
+    /** @brief The common ancestor. */
+    using type = From;
+};
+
+/**
+ * @brief Moves the search to the parent of @p From.
+ * @tparam From The space whose ancestors are tried, closest first
+ * @tparam To The other space
+ */
+template <typename From, typename To>
+    requires(!IsAncestorOrSelf<From, To> && HasParentSpace<From>)
+struct CommonAncestor<From, To> : CommonAncestor<typename ParentSpace<From>::type, To>
+{};
+
+/**
+ * @brief Converts a color up the tree, parent by parent, to one of its ancestors.
+ * @tparam Ancestor The ancestor to reach
+ * @tparam Space The color space of @p color
+ * @param[in] color The color to convert
+ * @return The color in @p Ancestor.
+ */
+template <ColorType Ancestor, ColorType Space>
+constexpr Ancestor ascend(const Space& color)
+{
+    if constexpr (std::is_same_v<Ancestor, Space>)
+        return color;
+    else
+    {
+        using Parent = typename ParentSpace<Space>::type;
+        return ascend<Ancestor>(Converter<Parent, Space>::convert(color));
+    }
+}
+
+/**
+ * @brief Converts a color down the tree, child by child, to one of its descendants.
+ * @tparam Descendant The descendant to reach
+ * @tparam Space The color space of @p color, an ancestor of @p Descendant
+ * @param[in] color The color to convert
+ * @return The color in @p Descendant.
+ */
+template <ColorType Descendant, ColorType Space>
+constexpr Descendant descend(const Space& color)
+{
+    if constexpr (std::is_same_v<Descendant, Space>)
+        return color;
+    else
+    {
+        using Parent = typename ParentSpace<Descendant>::type;
+        return Converter<Descendant, Parent>::convert(descend<Parent>(color));
+    }
+}
+} // namespace aest::colors
+
+export namespace aest::colors
+{
+/**
+ * @brief A color space that convert() can convert @p ColorIn to: directly
+ *        through a Converter, or along the conversion tree.
+ * @tparam ColorOut The output color space
+ * @tparam ColorIn The input color space
+ */
+template <typename ColorOut, typename ColorIn>
+concept ConvertibleTo =
+    ColorType<ColorOut> && ColorType<ColorIn> && (DirectConverter<ColorOut, ColorIn> || requires {
+        typename CommonAncestor<ColorIn, ColorOut>::type;
+    });
+
+/**
  * @brief Convert a color from one color space to another.
+ *
+ * Uses the Converter specialization between the two spaces when there is
+ * one. Otherwise the color goes up the conversion tree to the closest
+ * ancestor the spaces share, and down from it to @p ColorOut; each step
+ * clamps to the range of its space.
+ *
  * @tparam ColorOut The desired color space
  * @tparam ColorIn The current color space
  * @param[in] color The color to convert
  * @return A new color representing the input value in another color space
  */
 template <ColorType ColorOut, ColorType ColorIn>
+    requires ConvertibleTo<ColorOut, ColorIn>
 constexpr ColorOut convert(const ColorIn& color)
 {
-    return Converter<ColorOut, ColorIn>::convert(color);
+    if constexpr (DirectConverter<ColorOut, ColorIn>)
+        return Converter<ColorOut, ColorIn>::convert(color);
+    else
+    {
+        using Ancestor = typename CommonAncestor<ColorIn, ColorOut>::type;
+        return descend<ColorOut>(ascend<Ancestor>(color));
+    }
 }
 
 /**
@@ -87,6 +296,30 @@ struct Converter<ColorOut, ColorIn>
     static constexpr auto convert(const ColorIn& color) -> ColorOut { return color; }
 };
 
+/** @brief RGB converts through LinearRGB, the root of the conversion tree. */
+template <>
+struct ParentSpace<RGB>
+{
+    /** @brief The parent space. */
+    using type = LinearRGB;
+};
+
+/** @brief HSL converts through RGB. */
+template <>
+struct ParentSpace<HSL>
+{
+    /** @brief The parent space. */
+    using type = RGB;
+};
+
+/** @brief HSV converts through RGB. */
+template <>
+struct ParentSpace<HSV>
+{
+    /** @brief The parent space. */
+    using type = RGB;
+};
+
 /** @brief Converts HSL to RGB. */
 template <>
 struct Converter<RGB, HSL>
@@ -98,54 +331,9 @@ struct Converter<RGB, HSL>
      */
     static constexpr RGB convert(const HSL& color)
     {
-        const float h = color.hue();
-        const float c = 2 * std::min(color.lightness(), 1 - color.lightness()) * color.saturation();
-        // Distance from the middle of the current pair of 60 degree sectors;
-        // std::fmod and std::fabs are constexpr only since C++23
-        const float sector   = h / 60.0f;
-        const float distance = sector - 2 * static_cast<std::int32_t>(sector / 2) - 1;
-        const float x        = c * (1 - (distance < 0 ? -distance : distance));
-        const float m        = color.lightness() - c / 2;
-
-        float r, g, b;
-        if (h < 60)
-        {
-            r = c;
-            g = x;
-            b = 0;
-        }
-        else if (h < 120)
-        {
-            r = x;
-            g = c;
-            b = 0;
-        }
-        else if (h < 180)
-        {
-            r = 0;
-            g = c;
-            b = x;
-        }
-        else if (h < 240)
-        {
-            r = 0;
-            g = x;
-            b = c;
-        }
-        else if (h < 300)
-        {
-            r = x;
-            g = 0;
-            b = c;
-        }
-        else
-        {
-            r = c;
-            g = 0;
-            b = x;
-        }
-
-        return RGB{r + m, g + m, b + m, color.alpha()};
+        const float l = color.lightness();
+        const float c = 2 * std::min(l, 1 - l) * color.saturation();
+        return rgb_from_hue(color.hue(), c, l - c / 2, color.alpha());
     }
 };
 
@@ -168,28 +356,10 @@ struct Converter<HSL, RGB>
         const float min   = std::min({r, g, b});
         const float delta = max - min;
 
-        float h = 0;
-        if (delta != 0)
-        {
-            if (max == r)
-            {
-                // In [-60, 60]: the color constructor wraps negative hues
-                h = 60.0f * ((g - b) / delta);
-            }
-            else if (max == g)
-            {
-                h = 60.0f * ((b - r) / delta + 2);
-            }
-            else if (max == b)
-            {
-                h = 60.0f * ((r - g) / delta + 4);
-            }
-        }
-
         const float l = std::midpoint(max, min);
         const float s = delta == 0 ? 0 : delta / (2 * std::min(l, 1 - l));
 
-        return HSL{h, s, l, color.alpha()};
+        return HSL{hue_of(r, g, b, max, delta), s, l, color.alpha()};
     }
 };
 
@@ -212,28 +382,9 @@ struct Converter<HSV, RGB>
         const float min   = std::min({r, g, b});
         const float delta = max - min;
 
-        float h = 0;
-        if (delta != 0)
-        {
-            if (max == r)
-            {
-                // In [-60, 60]: the color constructor wraps negative hues
-                h = 60.0f * ((g - b) / delta);
-            }
-            else if (max == g)
-            {
-                h = 60.0f * ((b - r) / delta + 2);
-            }
-            else if (max == b)
-            {
-                h = 60.0f * ((r - g) / delta + 4);
-            }
-        }
-
         const float s = max == 0.0f ? 0.0f : delta / max;
-        const float v = max;
 
-        return HSV{h, s, v, color.alpha()};
+        return HSV{hue_of(r, g, b, max, delta), s, max, color.alpha()};
     }
 };
 
@@ -248,59 +399,13 @@ struct Converter<RGB, HSV>
      */
     static constexpr RGB convert(const HSV& color)
     {
-        const float h = color.hue();
-
-        const float c = color.brightness() * color.saturation();
-        // Distance from the middle of the current pair of 60 degree sectors;
-        // std::fmod and std::fabs are constexpr only since C++23
-        const float sector   = h / 60.0f;
-        const float distance = sector - 2 * static_cast<std::int32_t>(sector / 2) - 1;
-        const float x        = c * (1 - (distance < 0 ? -distance : distance));
-        const float m        = color.brightness() - c;
-
-        float r, g, b;
-        if (h < 60)
-        {
-            r = c;
-            g = x;
-            b = 0;
-        }
-        else if (h < 120)
-        {
-            r = x;
-            g = c;
-            b = 0;
-        }
-        else if (h < 180)
-        {
-            r = 0;
-            g = c;
-            b = x;
-        }
-        else if (h < 240)
-        {
-            r = 0;
-            g = x;
-            b = c;
-        }
-        else if (h < 300)
-        {
-            r = x;
-            g = 0;
-            b = c;
-        }
-        else
-        {
-            r = c;
-            g = 0;
-            b = x;
-        }
-
-        return RGB{r + m, g + m, b + m, color.alpha()};
+        const float v = color.brightness();
+        const float c = v * color.saturation();
+        return rgb_from_hue(color.hue(), c, v - c, color.alpha());
     }
 };
 
-/** @brief Converts HSL to HSV. */
+/** @brief Converts HSL to HSV, a shortcut that keeps the hue exactly. */
 template <>
 struct Converter<HSV, HSL>
 {
@@ -319,7 +424,7 @@ struct Converter<HSV, HSL>
     }
 };
 
-/** @brief Converts HSV to HSL. */
+/** @brief Converts HSV to HSL, a shortcut that keeps the hue exactly. */
 template <>
 struct Converter<HSL, HSV>
 {
