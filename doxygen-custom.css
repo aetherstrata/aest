@@ -32,3 +32,17 @@
         text-transform: uppercase;
     }
 }
+
+/*
+ * Member group headers (`///@name`). doxygen.css draws their separator with
+ * box-shadows in hard-coded page colors, which show as boxes beside the
+ * header when the theme switches between light and dark mode.
+ */
+div.groupHeader {
+    color: var(--page-secondary-foreground-color);
+    box-shadow:
+        13px 0 var(--page-background-color),
+        -13px 0 var(--page-background-color),
+        13px 1px var(--separator-color),
+        -13px 1px var(--separator-color);
+}
