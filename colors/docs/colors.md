@@ -23,10 +23,12 @@
 
 ## Conversions
 
-aest::colors::convert() converts between RGB, LinearRGB, HSL and HSV through
-aest::colors::Converter specializations, keeping alpha. Converting a color to
-its own type returns it unchanged; a pair with no specialization fails to
-compile.
+aest::colors::convert() converts between any two of RGB, LinearRGB, HSL and
+HSV, keeping alpha. Pairs with an aest::colors::Converter specialization
+convert directly; the others go through the conversion tree declared by
+aest::colors::ParentSpace (see @ref colors_architecture). Converting a color
+to its own type returns it unchanged. aest::colors::ConvertibleTo checks that
+a conversion exists.
 
 ## Arithmetic
 
@@ -50,3 +52,9 @@ specializing the operation's trait.
 | aest::colors::lighten(), aest::colors::darken() | Move lightness a fraction of the way toward white or black, keeping hue, saturation and alpha | HSL | aest::colors::Lightness |
 | aest::colors::mix() | Blend two colors, alpha included: 0 gives the first, 1 the second | LinearRGB | aest::colors::Interpolation |
 | aest::colors::euclidean() | Distance between two colors, ignoring alpha | RGB | aest::colors::Euclidean |
+
+## Design
+
+- @subpage colors_architecture — the type model, the conversion tree, how
+  operations pick a working space, and what runs at compile time.
+- @subpage colors_extending — adding a color space or an operation.
