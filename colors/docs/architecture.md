@@ -195,7 +195,11 @@ input's own gamut, so a default never clips a wide-gamut color to sRGB. A
 default template argument cannot name a later parameter, so `void` stands in
 for "the input's" while keeping the space the first template argument.
 Operations that combine two colors take them as one type; mix() deletes the
-overload for two types rather than pick one of them for the result.
+overload for two types rather than pick one of them for the result, with
+or without a HueMode. The overload with a HueMode is constrained on
+aest::colors::HueInterpolationSpace, the spaces whose Interpolation takes
+the mode, so asking for a hue arc in a space without a hue fails at the
+call.
 
 ## Compile-time evaluation
 

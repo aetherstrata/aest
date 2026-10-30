@@ -139,6 +139,29 @@ type first, into the wider gamut:
 const DisplayP3 blend = mix(convert<DisplayP3>(srgbColor), p3Color, 0.5f);
 ```
 
+## Hue interpolation
+
+In a space with a hue, HSL, HSV or OKLCH, mix() goes around the hue circle.
+An aest::colors::HueMode picks the arc, as in CSS Color 4:
+
+| Mode | Arc |
+|------|-----|
+| `HueMode::shorter` | The shorter one, at most 180°: the default |
+| `HueMode::longer` | The longer one; equal hues make a full turn |
+| `HueMode::increasing` | Clockwise, toward greater hues |
+| `HueMode::decreasing` | Counterclockwise, toward smaller hues |
+
+```cpp
+// Red to blue through green instead of through magenta
+const SRGB rainbow = mix<OKLCH>(red, blue, 0.5f, HueMode::longer);
+```
+
+The space is named explicitly, since the default, linear light, has no hue.
+A gray color, with saturation 0 in HSL and HSV or chroma below
+`ACHROMATIC_CHROMA` (1e-4) in OKLCH, has no hue either: it takes the hue of
+the other color, so a gradient from gray to red stays red. Without a mode,
+`mix<OKLCH>(from, to, amount)` takes the shorter arc.
+
 ## Luminance and contrast
 
 - aest::colors::luminance() — the relative luminance of a color, the Y of

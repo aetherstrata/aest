@@ -692,8 +692,9 @@ TEST_CASE("mix returns the input type and needs an interpolation space", "[color
 
     STATIC_REQUIRE(CanMixIn<LinSRGB>);
     STATIC_REQUIRE(CanMixIn<SRGB>);
-    STATIC_REQUIRE_FALSE(CanMixIn<HSL>);
-    STATIC_REQUIRE_FALSE(CanMixIn<HSV>);
+    // Spaces with a hue interpolate it along the shorter arc
+    STATIC_REQUIRE(CanMixIn<HSL>);
+    STATIC_REQUIRE(CanMixIn<HSV>);
 }
 
 TEST_CASE("euclidean measures in SRGB by default", "[colors][distance]")
@@ -1728,4 +1729,114 @@ TEST_CASE("euclidean defaults to OKLab", "[colors][distance]")
     CHECK_THAT(euclidean<SRGB>(SRGB{0.f, 0.f, 0.2f}, SRGB{0.f, 0.f, 0.3f}),
                WithinAbs(euclidean<SRGB>(SRGB{0.8f, 1.f, 0.8f}, SRGB{0.8f, 1.f, 0.7f}), 1e-6));
     CHECK(darkBlues > lightGreens);
+}
+
+namespace
+{
+using aest::colors::HueMode;
+
+template <typename Space>
+concept CanMixHueIn =
+    requires(SRGB color) { aest::colors::mix<Space>(color, color, 0.5f, HueMode::longer); };
+
+template <typename Color>
+concept CanMixHueByDefault =
+    requires(Color color) { aest::colors::mix(color, color, 0.5f, HueMode::longer); };
+
+template <typename From, typename To>
+concept MixableHueTogether =
+    requires(From from, To to) { aest::colors::mix<HSL>(from, to, 0.5f, HueMode::shorter); };
+
+/**
+ * @brief The hue halfway from @p from to @p to in HSL, along @p mode.
+ * @param[in] from The first hue
+ * @param[in] to The second hue
+ * @param[in] mode The arc to follow
+ * @return The hue of the midpoint.
+ */
+constexpr float midpoint_hue(const float from, const float to, const HueMode mode)
+{
+    return aest::colors::mix<HSL>(HSL{from, 1.f, 0.5f}, HSL{to, 1.f, 0.5f}, 0.5f, mode).hue();
+}
+} // namespace
+
+TEST_CASE("HueMode picks the arc of the hue circle", "[colors][hue]")
+{
+    // From 350 to 10 degrees: 20 degrees through 0, or 340 through 180
+    STATIC_REQUIRE(midpoint_hue(350.f, 10.f, HueMode::shorter) == 0.f);
+    STATIC_REQUIRE(midpoint_hue(350.f, 10.f, HueMode::longer) == 180.f);
+    STATIC_REQUIRE(midpoint_hue(350.f, 10.f, HueMode::increasing) == 0.f);
+    STATIC_REQUIRE(midpoint_hue(350.f, 10.f, HueMode::decreasing) == 180.f);
+
+    // The other way round
+    STATIC_REQUIRE(midpoint_hue(10.f, 350.f, HueMode::shorter) == 0.f);
+    STATIC_REQUIRE(midpoint_hue(10.f, 350.f, HueMode::longer) == 180.f);
+    STATIC_REQUIRE(midpoint_hue(10.f, 350.f, HueMode::increasing) == 180.f);
+    STATIC_REQUIRE(midpoint_hue(10.f, 350.f, HueMode::decreasing) == 0.f);
+
+    // Without a wrap, increasing and decreasing differ from the arcs
+    STATIC_REQUIRE(midpoint_hue(60.f, 120.f, HueMode::shorter) == 90.f);
+    STATIC_REQUIRE(midpoint_hue(60.f, 120.f, HueMode::longer) == 270.f);
+    STATIC_REQUIRE(midpoint_hue(60.f, 120.f, HueMode::increasing) == 90.f);
+    STATIC_REQUIRE(midpoint_hue(60.f, 120.f, HueMode::decreasing) == 270.f);
+
+    // Equal hues: the longer arc is a full turn
+    STATIC_REQUIRE(midpoint_hue(90.f, 90.f, HueMode::longer) == 270.f);
+    STATIC_REQUIRE(midpoint_hue(90.f, 90.f, HueMode::shorter) == 90.f);
+
+    // Without a mode, the shorter arc
+    STATIC_REQUIRE(aest::colors::mix<HSL>(HSL{350.f, 1.f, 0.5f}, HSL{10.f, 1.f, 0.5f}, 0.5f).hue()
+                   == 0.f);
+}
+
+TEST_CASE("Gray colors take the hue of the other color", "[colors][hue]")
+{
+    using aest::colors::convert;
+    using aest::colors::mix;
+
+    // HSL: saturation 0 is gray, whatever its stored hue
+    constexpr HSL gray{120.f, 0.f, 0.5f};
+    constexpr HSL blue{240.f, 1.f, 0.5f};
+    STATIC_REQUIRE(mix<HSL>(gray, blue, 0.25f).hue() == 240.f);
+    // As in CSS, the hue is filled in before the arc is picked: both ends at
+    // 240 degrees, so the longer arc is a full turn, 240 + 0.75 * 360
+    STATIC_REQUIRE(mix<HSL>(blue, gray, 0.75f, HueMode::longer).hue() == 150.f);
+    STATIC_REQUIRE(mix<HSL>(gray, HSL{60.f, 0.f, 1.f}, 0.5f).hue() == 0.f);
+    STATIC_REQUIRE(mix<HSV>(HSV{0.f, 0.f, 1.f}, HSV{200.f, 1.f, 1.f}, 0.5f).hue() == 200.f);
+
+    // OKLCH: white converted from sRGB has float noise in its chroma, and
+    // still counts as gray
+    const OKLCH white = convert<OKLCH>(SRGB{1.f, 1.f, 1.f});
+    const OKLCH red   = convert<OKLCH>(SRGB{1.f, 0.f, 0.f});
+    CHECK(white.chroma() < 1e-4f);
+    CHECK_THAT(mix<OKLCH>(white, red, 0.5f).hue(), WithinAbs(red.hue(), 1e-4));
+}
+
+TEST_CASE("mix with a HueMode needs a space with a hue", "[colors][hue]")
+{
+    using aest::colors::convert;
+    using aest::colors::mix;
+
+    STATIC_REQUIRE(CanMixHueIn<HSL>);
+    STATIC_REQUIRE(CanMixHueIn<HSV>);
+    STATIC_REQUIRE(CanMixHueIn<OKLCH>);
+    STATIC_REQUIRE_FALSE(CanMixHueIn<OKLab>);
+    STATIC_REQUIRE_FALSE(CanMixHueIn<LinSRGB>);
+
+    // The default space is linear light, which has no hue
+    STATIC_REQUIRE_FALSE(CanMixHueByDefault<SRGB>);
+    STATIC_REQUIRE_FALSE(CanMixHueByDefault<OKLCH>);
+    STATIC_REQUIRE(MixableHueTogether<SRGB, SRGB>);
+    STATIC_REQUIRE_FALSE(MixableHueTogether<SRGB, HSL>);
+
+    // Red to blue the long way passes through green, the short way through magenta
+    const SRGB red       = SRGB::from_hex(0xFF'00'00);
+    const SRGB blue      = SRGB::from_hex(0x00'00'FF);
+    const OKLCH longWay  = convert<OKLCH>(mix<OKLCH>(red, blue, 0.5f, HueMode::longer));
+    const OKLCH shortWay = convert<OKLCH>(mix<OKLCH>(red, blue, 0.5f));
+    CHECK(longWay.hue() > 90.f);
+    CHECK(longWay.hue() < 180.f);
+    CHECK(shortWay.hue() > 270.f);
+    CHECK(mix(red, blue, 0.5f, HueMode::shorter, aest::colors::in<OKLCH>)
+          == mix<OKLCH>(red, blue, 0.5f));
 }
