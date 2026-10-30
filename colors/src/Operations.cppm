@@ -5,6 +5,7 @@
  * @brief Partition `aest.colors:operations`: free functions that adjust colors.
  */
 module;
+#include <algorithm>
 #include <cmath>
 #include <concepts>
 export module aest.colors:operations;
@@ -15,6 +16,18 @@ import :space;
 
 namespace aest::colors
 {
+/** @brief Weight of linear red in the luminance, from Rec. 709 / sRGB. */
+constexpr float LUMINANCE_RED = 0.2126f;
+
+/** @brief Weight of linear green in the luminance, from Rec. 709 / sRGB. */
+constexpr float LUMINANCE_GREEN = 0.7152f;
+
+/** @brief Weight of linear blue in the luminance, from Rec. 709 / sRGB. */
+constexpr float LUMINANCE_BLUE = 0.0722f;
+
+/** @brief Viewing flare WCAG adds to both luminances of a contrast ratio. */
+constexpr float CONTRAST_FLARE = 0.05f;
+
 /**
  * @brief Interpolates every channel of two colors, alpha included.
  * @tparam Space A color space whose channels interpolate linearly, built from
@@ -215,5 +228,52 @@ constexpr Color mix(const Color& from,
 {
     return convert<Color>(
         Interpolation<Space>::lerp(convert<Space>(from), convert<Space>(to), clamp(amount)));
+}
+
+/**
+ * @brief Relative luminance of a color: the light it emits, weighted by how
+ *        bright each primary looks.
+ *
+ * The color is converted to LinSRGB and its channels weighted with the
+ * Rec. 709 / sRGB coefficients, ignoring alpha. White gives 1 and black 0;
+ * HDR colors give more than 1.
+ *
+ * @tparam Color The color type of @p color
+ * @param[in] color The color to measure
+ * @return The relative luminance, 0 or greater.
+ */
+template <ColorType Color>
+    requires ConvertibleTo<LinSRGB, Color>
+constexpr float luminance(const Color& color)
+{
+    const LinSRGB linear = convert<LinSRGB>(color);
+    return LUMINANCE_RED * linear.red() + LUMINANCE_GREEN * linear.green()
+         + LUMINANCE_BLUE * linear.blue();
+}
+
+/**
+ * @brief WCAG 2.x contrast ratio between two colors, such as text and its
+ *        background.
+ *
+ * Both colors are first converted to SRGB, as a display shows them, so HDR
+ * values clip to 1. The ratio is `(L1 + 0.05) / (L2 + 0.05)`, with `L1` the
+ * luminance() of the lighter color. Alpha is ignored: composite a
+ * translucent color onto its background with over() first.
+ *
+ * @tparam Color1 Color type of @p color1
+ * @tparam Color2 Color type of @p color2
+ * @param[in] color1 One of the colors; the order does not matter
+ * @param[in] color2 The other color
+ * @return The contrast ratio, in the 1-21 range: 1 for equal luminances,
+ *         21 for black on white.
+ */
+template <ColorType Color1, ColorType Color2>
+    requires ConvertibleTo<SRGB, Color1> && ConvertibleTo<SRGB, Color2>
+float contrast_ratio(const Color1& color1, const Color2& color2)
+{
+    const float luminance1 = luminance(convert<SRGB>(color1));
+    const float luminance2 = luminance(convert<SRGB>(color2));
+    return (std::max(luminance1, luminance2) + CONTRAST_FLARE)
+         / (std::min(luminance1, luminance2) + CONTRAST_FLARE);
 }
 } // namespace aest::colors

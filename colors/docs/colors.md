@@ -71,6 +71,21 @@ specializing the operation's trait.
 | aest::colors::mix()                             | Blend two colors, alpha included: 0 gives the first, 1 the second                             | LinSRGB       | aest::colors::Interpolation |
 | aest::colors::euclidean()                       | Distance between two colors, ignoring alpha                                                   | SRGB          | aest::colors::Euclidean     |
 
+## Luminance and contrast
+
+- aest::colors::luminance() — the relative luminance of a color: its LinSRGB
+  channels weighted with the Rec. 709 / sRGB coefficients, ignoring alpha.
+  White gives 1, black 0, and HDR colors more than 1.
+- aest::colors::contrast_ratio() — the WCAG 2.x contrast ratio of two colors,
+  from 1 to 21, in either order. Both are measured as a display shows them,
+  through SRGB, so HDR values clip to white. Alpha is ignored: composite a
+  translucent color onto its background with aest::colors::over() first.
+
+```cpp
+const SRGB text = SRGB::from_hex(0x777777);
+const bool readable = contrast_ratio(text, css::white) >= 4.5f; // false: 4.48
+```
+
 ## Design
 
 - @subpage colors_architecture — the type model, the conversion tree, how

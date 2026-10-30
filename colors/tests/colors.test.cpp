@@ -832,3 +832,36 @@ TEST_CASE("over composites source-over in premultiplied linear light", "[colors]
     constexpr PremulLin frame = over(halfRed, PremulLin{0.f, 0.f, 1.f});
     STATIC_REQUIRE(frame == PremulLin{0.5f, 0.f, 0.5f, 1.f});
 }
+
+TEST_CASE("luminance weights linear light with the Rec. 709 coefficients", "[colors][operations]")
+{
+    using aest::colors::luminance;
+
+    STATIC_REQUIRE(luminance(LinSRGB{1.f, 1.f, 1.f}) == 1.f);
+    STATIC_REQUIRE(luminance(LinSRGB{0.f, 0.f, 0.f}) == 0.f);
+    STATIC_REQUIRE(luminance(LinSRGB{1.f, 0.f, 0.f, 0.25f}) == 0.2126f);
+    STATIC_REQUIRE(luminance(LinSRGB{0.f, 1.f, 0.f}) == 0.7152f);
+    STATIC_REQUIRE(luminance(LinSRGB{0.f, 0.f, 1.f}) == 0.0722f);
+    STATIC_REQUIRE(luminance(LinSRGB{2.f, 2.f, 2.f}) == 2.f);
+
+    // Other spaces are linearized first
+    CHECK_THAT(luminance(SRGB::from_hex(0x80'80'80)), WithinAbs(0.215861, 1e-5));
+    CHECK_THAT(luminance(HSL{0.f, 0.f, 1.f}), WithinAbs(1., 1e-6));
+}
+
+TEST_CASE("contrast_ratio follows WCAG 2.x", "[colors][operations]")
+{
+    using aest::colors::contrast_ratio;
+
+    const SRGB white = SRGB::from_hex(0xFF'FF'FF);
+    const SRGB black = SRGB::from_hex(0x00'00'00);
+    CHECK_THAT(contrast_ratio(black, white), WithinAbs(21., 1e-5));
+    CHECK(contrast_ratio(white, black) == contrast_ratio(black, white));
+    CHECK(contrast_ratio(white, white) == 1.f);
+
+    // #777777 on white just fails the 4.5:1 AA threshold
+    CHECK_THAT(contrast_ratio(SRGB::from_hex(0x77'77'77), white), WithinAbs(4.478089, 1e-4));
+
+    // Mixed types, and HDR colors clip to white as a display shows them
+    CHECK_THAT(contrast_ratio(HSL{0.f, 0.f, 0.f}, LinSRGB{4.f, 4.f, 4.f}), WithinAbs(21., 1e-5));
+}

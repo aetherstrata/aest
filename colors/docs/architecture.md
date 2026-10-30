@@ -133,7 +133,8 @@ and MSVC.
 | Construction, hex and byte packing, opacity(), `==`         | SRGB ↔ LinSRGB (`std::pow`)    |
 | SRGB ↔ HSL ↔ HSV conversions                                | euclidean() (`std::sqrt`)      |
 | lighten(), darken() and mix() when no step needs `<cmath>`  | Anything through LinSRGB       |
-| Premultiplied conversions, over() of linear colors          |                                |
+| Premultiplied conversions, over() of linear colors          | contrast_ratio() (`std::pow`)  |
+| luminance() of linear colors                                |                                |
 
 A function marked `constexpr` whose path reaches a run-time step simply
 cannot be used in a constant expression for those arguments: mix() of two
