@@ -512,13 +512,22 @@ TEST_CASE("LinSRGB arithmetic combines alpha like the other channels", "[colors]
     STATIC_REQUIRE((halfTransparent * halfTransparent).alpha() == 0.25f);
 }
 
-TEST_CASE("LinSRGB scales by a gray color, not by a scalar", "[colors]")
+TEST_CASE("LinSRGB scales by a scalar, keeping alpha", "[colors]")
 {
-    STATIC_REQUIRE_FALSE(ScalableByFloat<LinSRGB>);
+    STATIC_REQUIRE(ScalableByFloat<LinSRGB>);
+    STATIC_REQUIRE_FALSE(ScalableByFloat<SRGB>);
 
-    LinSRGB color{0.5f, 1.f, 0.25f, 0.5f};
-    color *= {0.5f, 0.5f, 0.5f}; // alpha defaults to 1, so opacity is kept
-    CHECK(color == LinSRGB{0.25f, 0.5f, 0.125f, 0.5f});
+    constexpr LinSRGB color{0.5f, 1.f, 0.25f, 0.5f};
+    STATIC_REQUIRE(color * 2.f == LinSRGB{1.f, 2.f, 0.5f, 0.5f});
+    STATIC_REQUIRE(2.f * color == color * 2.f);
+    STATIC_REQUIRE(color / 4.f == LinSRGB{0.125f, 0.25f, 0.0625f, 0.5f});
+    STATIC_REQUIRE(color * -1.f == LinSRGB{0.f, 0.f, 0.f, 0.5f});
+
+    LinSRGB scaled = color;
+    scaled *= 4.f;
+    CHECK(scaled == LinSRGB{2.f, 4.f, 1.f, 0.5f});
+    scaled /= 2.f;
+    CHECK(scaled == LinSRGB{1.f, 2.f, 0.5f, 0.5f});
 }
 
 TEST_CASE("lighten moves HSL lightness toward white", "[colors][operations]")

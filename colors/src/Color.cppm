@@ -219,10 +219,9 @@ public:
  * like any other value of that type: LinSRGB channels stop at 0 but not at 1,
  * and alpha stays in the 0-1 range.
  *
- * There are no scalar operators: multiplying by a scalar would scale the
- * alpha with the light. Scale by a gray color instead, choosing the alpha
- * explicitly, as in `color *= {0.5f, 0.5f, 0.5f}` (alpha defaults to 1), or
- * use the named operations such as lighten() and darken().
+ * The scalar operators are the exception: `color * s` and `color / s` scale
+ * the light, the three color channels, and keep alpha, as exposure or a
+ * light's intensity would.
  *
  * @tparam Derived The derived color class
  */
@@ -287,6 +286,63 @@ struct ColorArithmetic
      * @return Reference to this color after modification.
      */
     constexpr Derived& operator*=(const Derived& other) noexcept { return self() = self() * other; }
+    ///@}
+
+    ///@name Scalar operators
+    ///@{
+    /**
+     * @brief Scales the color channels of a color, keeping its alpha.
+     * @param[in] color The color to scale.
+     * @param[in] scalar The factor applied to each color channel.
+     * @return A new Color with the scaled channels and the alpha of @p color.
+     * @pre @p scalar is finite.
+     */
+    friend constexpr Derived operator*(const Derived& color, const float scalar) noexcept
+    {
+        return Derived{color.ch1() * scalar, color.ch2() * scalar, color.ch3() * scalar,
+                       color.alpha()};
+    }
+
+    /**
+     * @brief Scales the color channels of a color, keeping its alpha.
+     * @param[in] scalar The factor applied to each color channel.
+     * @param[in] color The color to scale.
+     * @return A new Color with the scaled channels and the alpha of @p color.
+     * @pre @p scalar is finite.
+     */
+    friend constexpr Derived operator*(const float scalar, const Derived& color) noexcept
+    {
+        return color * scalar;
+    }
+
+    /**
+     * @brief Divides the color channels of a color, keeping its alpha.
+     * @param[in] color The color to divide.
+     * @param[in] scalar The divisor of each color channel.
+     * @return A new Color with the divided channels and the alpha of @p color.
+     * @pre @p scalar is finite and not 0.
+     */
+    friend constexpr Derived operator/(const Derived& color, const float scalar) noexcept
+    {
+        return Derived{color.ch1() / scalar, color.ch2() / scalar, color.ch3() / scalar,
+                       color.alpha()};
+    }
+
+    /**
+     * @brief Scales the color channels of this color in place, keeping its alpha.
+     * @param[in] scalar The factor applied to each color channel.
+     * @return Reference to this color after modification.
+     * @pre @p scalar is finite.
+     */
+    constexpr Derived& operator*=(const float scalar) noexcept { return self() = self() * scalar; }
+
+    /**
+     * @brief Divides the color channels of this color in place, keeping its alpha.
+     * @param[in] scalar The divisor of each color channel.
+     * @return Reference to this color after modification.
+     * @pre @p scalar is finite and not 0.
+     */
+    constexpr Derived& operator/=(const float scalar) noexcept { return self() = self() / scalar; }
     ///@}
 
 private:

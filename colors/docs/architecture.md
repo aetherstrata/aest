@@ -21,7 +21,8 @@ one is expected, and the conversion between them is always explicit.
   against: the four observers, a `TYPE` name for formatting, and the
   four-channel constructor. A type outside the library can satisfy it.
 - Mixins add behavior only where it is meaningful.
-  aest::colors::ColorArithmetic gives `+`, `-` and `*`, and only
+  aest::colors::ColorArithmetic gives `+`, `-` and `*` between colors and
+  scaling by a scalar, and only
   LinSRGB inherits it: adding gamma-encoded values or hues has no
   physical meaning.
 
@@ -51,8 +52,9 @@ not a value the constructors repair.
 
 Alpha is straight, not premultiplied: the color channels do not depend on
 it. Conversions keep it unchanged. Operations that move a color, such as
-lighten(), keep it too; those that combine colors, mix() and the LinSRGB
-operators, combine it like the other channels.
+lighten(), keep it too, and so do the scalar operators, which scale only
+the light; those that combine colors, mix() and the LinSRGB operators
+between two colors, combine it like the other channels.
 
 ## Conversion tree
 
