@@ -146,7 +146,7 @@ struct Interpolation;
 
 /** @brief Interpolation of linear sRGB, channel by channel. */
 template <>
-struct Interpolation<LinearRGB>
+struct Interpolation<LinSRGB>
 {
     /**
      * @brief Interpolates the light and alpha of two colors.
@@ -155,7 +155,7 @@ struct Interpolation<LinearRGB>
      * @param[in] amount Position between the two colors, in the 0-1 range
      * @return The interpolated color.
      */
-    static constexpr LinearRGB lerp(const LinearRGB& from, const LinearRGB& to, const float amount)
+    static constexpr LinSRGB lerp(const LinSRGB& from, const LinSRGB& to, const float amount)
     {
         return lerp_channels(from, to, amount);
     }
@@ -163,7 +163,7 @@ struct Interpolation<LinearRGB>
 
 /** @brief Interpolation of gamma-encoded sRGB, channel by channel. */
 template <>
-struct Interpolation<RGB>
+struct Interpolation<SRGB>
 {
     /**
      * @brief Interpolates the encoded channels and alpha of two colors.
@@ -172,7 +172,7 @@ struct Interpolation<RGB>
      * @param[in] amount Position between the two colors, in the 0-1 range
      * @return The interpolated color.
      */
-    static constexpr RGB lerp(const RGB& from, const RGB& to, const float amount)
+    static constexpr SRGB lerp(const SRGB& from, const SRGB& to, const float amount)
     {
         return lerp_channels(from, to, amount);
     }
@@ -193,7 +193,7 @@ concept InterpolationSpace = ColorType<T> && requires(const T& color, const floa
  *
  * Both colors are converted to @p Space, interpolated there channel by
  * channel, alpha included, and converted back. The default, linear sRGB,
- * blends the light physically; `in<RGB>` blends the encoded values instead,
+ * blends the light physically; `in<SRGB>` blends the encoded values instead,
  * like CSS `color-mix(in srgb, …)`, which gives darker midpoints.
  *
  * @tparam Space The color space the colors are blended in
@@ -202,10 +202,10 @@ concept InterpolationSpace = ColorType<T> && requires(const T& color, const floa
  * @param[in] to The color at @p amount 1
  * @param[in] amount Fraction of the way from @p from to @p to, clamped to the
  *            0-1 range: 0 gives @p from, 1 gives @p to
- * @param[in] space The working space, e.g. `in<RGB>`; LinearRGB when omitted
+ * @param[in] space The working space, e.g. `in<SRGB>`; LinSRGB when omitted
  * @return The blended color.
  */
-template <InterpolationSpace Space = LinearRGB, ColorType Color>
+template <InterpolationSpace Space = LinSRGB, ColorType Color>
     requires ConvertibleTo<Space, Color> && ConvertibleTo<Color, Space>
 constexpr Color mix(const Color& from,
                     const Color& to,

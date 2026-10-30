@@ -49,12 +49,12 @@ constexpr float hue_of(
  * @param[in] chroma Difference between the largest and smallest channel
  * @param[in] offset Value of the smallest channel
  * @param[in] alpha Alpha channel value
- * @return The RGB color.
+ * @return The SRGB color.
  */
-constexpr RGB rgb_from_hue(const float hue,
-                           const float chroma,
-                           const float offset,
-                           const float alpha)
+constexpr SRGB rgb_from_hue(const float hue,
+                            const float chroma,
+                            const float offset,
+                            const float alpha)
 {
     // Distance from the middle of the current pair of 60 degree sectors;
     // std::fmod and std::fabs are constexpr only since C++23
@@ -94,7 +94,7 @@ constexpr RGB rgb_from_hue(const float hue,
         b = second;
     }
 
-    return RGB{r + offset, g + offset, b + offset, alpha};
+    return SRGB{r + offset, g + offset, b + offset, alpha};
 }
 } // namespace aest::colors
 
@@ -296,40 +296,40 @@ struct Converter<ColorOut, ColorIn>
     static constexpr auto convert(const ColorIn& color) -> ColorOut { return color; }
 };
 
-/** @brief RGB converts through LinearRGB, the root of the conversion tree. */
+/** @brief SRGB converts through LinSRGB, the root of the conversion tree. */
 template <>
-struct ParentSpace<RGB>
+struct ParentSpace<SRGB>
 {
     /** @brief The parent space. */
-    using type = LinearRGB;
+    using type = LinSRGB;
 };
 
-/** @brief HSL converts through RGB. */
+/** @brief HSL converts through SRGB. */
 template <>
 struct ParentSpace<HSL>
 {
     /** @brief The parent space. */
-    using type = RGB;
+    using type = SRGB;
 };
 
-/** @brief HSV converts through RGB. */
+/** @brief HSV converts through SRGB. */
 template <>
 struct ParentSpace<HSV>
 {
     /** @brief The parent space. */
-    using type = RGB;
+    using type = SRGB;
 };
 
-/** @brief Converts HSL to RGB. */
+/** @brief Converts HSL to SRGB. */
 template <>
-struct Converter<RGB, HSL>
+struct Converter<SRGB, HSL>
 {
     /**
-     * @brief Converts @p color to RGB.
+     * @brief Converts @p color to SRGB.
      * @param[in] color The color to convert
-     * @return The same color in RGB, with the same alpha
+     * @return The same color in SRGB, with the same alpha
      */
-    static constexpr RGB convert(const HSL& color)
+    static constexpr SRGB convert(const HSL& color)
     {
         const float l = color.lightness();
         const float c = 2 * std::min(l, 1 - l) * color.saturation();
@@ -337,16 +337,16 @@ struct Converter<RGB, HSL>
     }
 };
 
-/** @brief Converts RGB to HSL. */
+/** @brief Converts SRGB to HSL. */
 template <>
-struct Converter<HSL, RGB>
+struct Converter<HSL, SRGB>
 {
     /**
      * @brief Converts @p color to HSL.
      * @param[in] color The color to convert
      * @return The same color in HSL, with the same alpha
      */
-    static constexpr HSL convert(const RGB& color)
+    static constexpr HSL convert(const SRGB& color)
     {
         const float r = color.red();
         const float g = color.green();
@@ -363,16 +363,16 @@ struct Converter<HSL, RGB>
     }
 };
 
-/** @brief Converts RGB to HSV. */
+/** @brief Converts SRGB to HSV. */
 template <>
-struct Converter<HSV, RGB>
+struct Converter<HSV, SRGB>
 {
     /**
      * @brief Converts @p color to HSV.
      * @param[in] color The color to convert
      * @return The same color in HSV, with the same alpha
      */
-    static constexpr HSV convert(const RGB& color)
+    static constexpr HSV convert(const SRGB& color)
     {
         const float r = color.red();
         const float g = color.green();
@@ -388,16 +388,16 @@ struct Converter<HSV, RGB>
     }
 };
 
-/** @brief Converts HSV to RGB. */
+/** @brief Converts HSV to SRGB. */
 template <>
-struct Converter<RGB, HSV>
+struct Converter<SRGB, HSV>
 {
     /**
-     * @brief Converts @p color to RGB.
+     * @brief Converts @p color to SRGB.
      * @param[in] color The color to convert
-     * @return The same color in RGB, with the same alpha
+     * @return The same color in SRGB, with the same alpha
      */
-    static constexpr RGB convert(const HSV& color)
+    static constexpr SRGB convert(const HSV& color)
     {
         const float v = color.brightness();
         const float c = v * color.saturation();
@@ -445,7 +445,7 @@ struct Converter<HSL, HSV>
 
 /** @brief Converts sRGB to linear sRGB by removing the gamma encoding. */
 template <>
-struct Converter<LinearRGB, RGB>
+struct Converter<LinSRGB, SRGB>
 {
     /**
      * @brief Convert a color channel value from sRGB to linear space.
@@ -468,16 +468,16 @@ struct Converter<LinearRGB, RGB>
      * @param[in] color The color to convert
      * @return The same color in linear sRGB, with the same alpha
      */
-    static LinearRGB convert(const RGB& color)
+    static LinSRGB convert(const SRGB& color)
     {
-        return LinearRGB{srgb_to_linear(color.red()), srgb_to_linear(color.green()),
-                         srgb_to_linear(color.blue()), color.alpha()};
+        return LinSRGB{srgb_to_linear(color.red()), srgb_to_linear(color.green()),
+                       srgb_to_linear(color.blue()), color.alpha()};
     }
 };
 
 /** @brief Converts linear sRGB to sRGB by applying the gamma encoding. */
 template <>
-struct Converter<RGB, LinearRGB>
+struct Converter<SRGB, LinSRGB>
 {
     /**
      * @brief Convert a color channel value from linear space to sRGB.
@@ -501,10 +501,10 @@ struct Converter<RGB, LinearRGB>
      * @param[in] color The color to convert
      * @return The same color in sRGB, with the same alpha
      */
-    static RGB convert(const LinearRGB& color)
+    static SRGB convert(const LinSRGB& color)
     {
-        return RGB{linear_to_srgb(color.red()), linear_to_srgb(color.green()),
-                   linear_to_srgb(color.blue()), color.alpha()};
+        return SRGB{linear_to_srgb(color.red()), linear_to_srgb(color.green()),
+                    linear_to_srgb(color.blue()), color.alpha()};
     }
 };
 

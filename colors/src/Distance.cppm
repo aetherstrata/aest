@@ -50,7 +50,7 @@ struct Euclidean;
 
 /** @brief Euclidean distance in gamma-encoded sRGB. */
 template <>
-struct Euclidean<RGB>
+struct Euclidean<SRGB>
 {
     /**
      * @brief Distance between the encoded channels of two colors, ignoring alpha.
@@ -58,7 +58,7 @@ struct Euclidean<RGB>
      * @param[in] color2 Second color
      * @return The distance, in the 0-sqrt(3) range.
      */
-    static float distance(const RGB& color1, const RGB& color2)
+    static float distance(const SRGB& color1, const SRGB& color2)
     {
         return channel_distance(color1, color2);
     }
@@ -66,7 +66,7 @@ struct Euclidean<RGB>
 
 /** @brief Euclidean distance in linear sRGB. */
 template <>
-struct Euclidean<LinearRGB>
+struct Euclidean<LinSRGB>
 {
     /**
      * @brief Distance between the light of two colors, ignoring alpha.
@@ -74,7 +74,7 @@ struct Euclidean<LinearRGB>
      * @param[in] color2 Second color
      * @return The distance, in the 0-sqrt(3) range.
      */
-    static float distance(const LinearRGB& color1, const LinearRGB& color2)
+    static float distance(const LinSRGB& color1, const LinSRGB& color2)
     {
         return channel_distance(color1, color2);
     }
@@ -95,7 +95,7 @@ concept EuclideanSpace = ColorType<T> && requires(const T& color) {
  *
  * Both colors are converted to @p Space and the distance between their
  * channels is measured there, ignoring alpha. The default, gamma-encoded
- * RGB, is closer to how different the colors look; `in<LinearRGB>` measures
+ * SRGB, is closer to how different the colors look; `in<LinSRGB>` measures
  * the difference in light.
  *
  * @tparam Space The color space the distance is measured in
@@ -103,10 +103,10 @@ concept EuclideanSpace = ColorType<T> && requires(const T& color) {
  * @tparam Color2 Color type of @p color2
  * @param[in] color1 First color
  * @param[in] color2 Second color
- * @param[in] space The working space, e.g. `in<LinearRGB>`; RGB when omitted
- * @return The distance, in the 0-sqrt(3) range for RGB and LinearRGB.
+ * @param[in] space The working space, e.g. `in<LinSRGB>`; SRGB when omitted
+ * @return The distance, in the 0-sqrt(3) range for SRGB and LinSRGB.
  */
-template <EuclideanSpace Space = RGB, ColorType Color1, ColorType Color2>
+template <EuclideanSpace Space = SRGB, ColorType Color1, ColorType Color2>
     requires ConvertibleTo<Space, Color1> && ConvertibleTo<Space, Color2>
 float euclidean(const Color1& color1, const Color2& color2, [[maybe_unused]] In<Space> space = {})
 {

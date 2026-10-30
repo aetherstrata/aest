@@ -8,7 +8,7 @@ compile time. @ref colors_extending shows how to add to it.
 
 Every color is four `float`s: three channels and alpha. The channels mean
 different things in each color space, so each space is its own type and
-the compiler keeps them apart: an RGB value cannot be passed where an HSL
+the compiler keeps them apart: an SRGB value cannot be passed where an HSL
 one is expected, and the conversion between them is always explicit.
 
 - aest::colors::ColorBase holds the channels and alpha, and gives every space
@@ -22,15 +22,15 @@ one is expected, and the conversion between them is always explicit.
   four-channel constructor. A type outside the library can satisfy it.
 - Mixins add behavior only where it is meaningful.
   aest::colors::ColorArithmetic gives `+`, `-` and `*`, and only
-  LinearRGB inherits it: adding gamma-encoded values or hues has no
+  LinSRGB inherits it: adding gamma-encoded values or hues has no
   physical meaning.
 
 ### Families of color spaces
 
 | Family  | Spaces    | Channels                                                    |
 |---------|-----------|-------------------------------------------------------------|
-| Encoded | RGB       | sRGB with its transfer function: hex codes, bytes, CSS      |
-| Linear  | LinearRGB | Proportional to light: blending and lighting math belong here |
+| Encoded | SRGB      | sRGB with its transfer function: hex codes, bytes, CSS      |
+| Linear  | LinSRGB   | Proportional to light: blending and lighting math belong here |
 | Derived | HSL, HSV  | Cylindrical views of sRGB, for picking and adjusting colors  |
 
 ### Ranges
@@ -40,8 +40,8 @@ value of a color type is always valid for that space.
 
 | Space     | Channels                                                     | Alpha |
 |-----------|--------------------------------------------------------------|-------|
-| RGB       | Clamped to [0, 1]                                            | [0, 1] |
-| LinearRGB | Clamped to [0, 1]                                            | [0, 1] |
+| SRGB      | Clamped to [0, 1]                                            | [0, 1] |
+| LinSRGB   | Clamped to [0, 1]                                            | [0, 1] |
 | HSL, HSV  | Hue wrapped to [0, 360); saturation, lightness/value clamped to [0, 1] | [0, 1] |
 
 Channels must be finite: NaN and infinities are a precondition violation,
@@ -51,7 +51,7 @@ not a value the constructors repair.
 
 Alpha is straight, not premultiplied: the color channels do not depend on
 it. Conversions keep it unchanged. Operations that move a color, such as
-lighten(), keep it too; those that combine colors, mix() and the LinearRGB
+lighten(), keep it too; those that combine colors, mix() and the LinSRGB
 operators, combine it like the other channels.
 
 ## Conversion tree
@@ -61,8 +61,8 @@ form a tree, declared by aest::colors::ParentSpace, and each space provides
 aest::colors::Converter specializations to and from its parent:
 
 ```
-LinearRGB              root
-└── RGB                sRGB transfer function
+LinSRGB                root
+└── SRGB               sRGB transfer function
     ├── HSL            hue, saturation, lightness
     └── HSV            hue, saturation, value
 ```
@@ -75,8 +75,8 @@ A conversion takes one of two routes:
    which keeps the hue exactly.
 2. **Through the tree.** Otherwise the color goes up, parent by parent, to
    the closest ancestor the two spaces share, and down from it to the target.
-   HSL → LinearRGB goes HSL → RGB → LinearRGB; LinearRGB → HSV goes
-   LinearRGB → RGB → HSV.
+   HSL → LinSRGB goes HSL → SRGB → LinSRGB; LinSRGB → HSV goes
+   LinSRGB → SRGB → HSV.
 
 The route is chosen at compile time. aest::colors::ConvertibleTo tells
 whether one exists, and the operations are constrained on it, so a space
@@ -115,11 +115,11 @@ and MSVC.
 
 | Compile time                                                | Run time only                  |
 |-------------------------------------------------------------|--------------------------------|
-| Construction, hex and byte packing, opacity(), `==`         | RGB ↔ LinearRGB (`std::pow`)   |
-| RGB ↔ HSL ↔ HSV conversions                                 | euclidean() (`std::sqrt`)      |
-| lighten(), darken() and mix() when no step needs `<cmath>`  | Anything through LinearRGB     |
+| Construction, hex and byte packing, opacity(), `==`         | SRGB ↔ LinSRGB (`std::pow`)    |
+| SRGB ↔ HSL ↔ HSV conversions                                | euclidean() (`std::sqrt`)      |
+| lighten(), darken() and mix() when no step needs `<cmath>`  | Anything through LinSRGB       |
 
 A function marked `constexpr` whose path reaches a run-time step simply
 cannot be used in a constant expression for those arguments: mix() of two
-LinearRGB colors is a constant expression, while mix() of two RGB colors,
-which converts through LinearRGB, is not.
+LinSRGB colors is a constant expression, while mix() of two SRGB colors,
+which converts through LinSRGB, is not.

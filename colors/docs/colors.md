@@ -5,25 +5,25 @@
 
 ## Color types
 
-- aest::colors::RGB, aest::colors::LinearRGB, aest::colors::HSL,
+- aest::colors::SRGB, aest::colors::LinSRGB, aest::colors::HSL,
   aest::colors::HSV — colors with float channels and alpha, built on
   aest::colors::ColorBase and checked by the aest::colors::ColorType concept.
-  RGB holds gamma-encoded sRGB (hex codes, bytes, CSS); LinearRGB holds the
+  SRGB holds gamma-encoded sRGB (hex codes, bytes, CSS); LinSRGB holds the
   same primaries without the gamma, so its channels are proportional to light.
-- aest::colors::RGB::from_hex(), aest::colors::RGB::from_rgba(),
-  aest::colors::RGB::from_argb(), aest::colors::RGB::from_bytes() — build an
-  RGB color from packed or 8-bit values; aest::colors::RGB::to_rgba(),
-  aest::colors::RGB::to_argb() and aest::colors::RGB::hex_string() pack it
+- aest::colors::SRGB::from_hex(), aest::colors::SRGB::from_rgba(),
+  aest::colors::SRGB::from_argb(), aest::colors::SRGB::from_bytes() — build an
+  SRGB color from packed or 8-bit values; aest::colors::SRGB::to_rgba(),
+  aest::colors::SRGB::to_argb() and aest::colors::SRGB::hex_string() pack it
   back, rounding each channel to the nearest byte.
 - aest::colors::ColorBase::opacity() — copies a color with a new alpha.
 - `std::format("{}", color)` prints the color space and its channels, as in
-  `RGB(1.000, 0.000, 0.500, 1.000)`; a float spec such as `{:.1f}` applies to
+  `SRGB(1.000, 0.000, 0.500, 1.000)`; a float spec such as `{:.1f}` applies to
   each channel.
 - Named CSS colors in aest::colors::css, such as aest::colors::css::teal.
 
 ## Conversions
 
-aest::colors::convert() converts between any two of RGB, LinearRGB, HSL and
+aest::colors::convert() converts between any two of SRGB, LinSRGB, HSL and
 HSV, keeping alpha. Pairs with an aest::colors::Converter specialization
 convert directly; the others go through the conversion tree declared by
 aest::colors::ParentSpace (see @ref colors_architecture). Converting a color
@@ -32,7 +32,7 @@ a conversion exists.
 
 ## Arithmetic
 
-LinearRGB has `+`, `-` and `*` between two colors, and their compound forms,
+LinSRGB has `+`, `-` and `*` between two colors, and their compound forms,
 through aest::colors::ColorArithmetic. Every operator combines all four
 channels, alpha included, and clamps the result. There are no scalar
 operators: scale by a gray color instead, as in `color *= {0.5f, 0.5f, 0.5f}`
@@ -50,8 +50,8 @@ specializing the operation's trait.
 | Operation | Does | Default space | Trait |
 |-----------|------|---------------|-------|
 | aest::colors::lighten(), aest::colors::darken() | Move lightness a fraction of the way toward white or black, keeping hue, saturation and alpha | HSL | aest::colors::Lightness |
-| aest::colors::mix() | Blend two colors, alpha included: 0 gives the first, 1 the second | LinearRGB | aest::colors::Interpolation |
-| aest::colors::euclidean() | Distance between two colors, ignoring alpha | RGB | aest::colors::Euclidean |
+| aest::colors::mix() | Blend two colors, alpha included: 0 gives the first, 1 the second | LinSRGB | aest::colors::Interpolation |
+| aest::colors::euclidean() | Distance between two colors, ignoring alpha | SRGB | aest::colors::Euclidean |
 
 ## Design
 

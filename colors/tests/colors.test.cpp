@@ -17,49 +17,49 @@ import aest.colors;
 
 using aest::colors::HSL;
 using aest::colors::HSV;
-using aest::colors::LinearRGB;
-using aest::colors::RGB;
+using aest::colors::LinSRGB;
+using aest::colors::SRGB;
 using Catch::Matchers::WithinAbs;
 
 TEST_CASE("from_hex unpacks channels", "[colors]")
 {
-    STATIC_REQUIRE(RGB::from_hex(0x12'34'56) == RGB::from_bytes(0x12, 0x34, 0x56));
-    STATIC_REQUIRE(RGB::from_argb(0xFF'00'00'00) == RGB{});
+    STATIC_REQUIRE(SRGB::from_hex(0x12'34'56) == SRGB::from_bytes(0x12, 0x34, 0x56));
+    STATIC_REQUIRE(SRGB::from_argb(0xFF'00'00'00) == SRGB{});
 }
 
 TEST_CASE("hex_string formats as #RRGGBB", "[colors]")
 {
-    CHECK(RGB{}.hex_string() == "#000000");
-    CHECK(RGB::from_bytes(0xAB, 0x0C, 0xFF).hex_string() == "#AB0CFF");
+    CHECK(SRGB{}.hex_string() == "#000000");
+    CHECK(SRGB::from_bytes(0xAB, 0x0C, 0xFF).hex_string() == "#AB0CFF");
 }
 
 TEST_CASE("std::format prints the color space and channels", "[colors]")
 {
-    CHECK(std::format("{}", RGB{1.f, 0.f, 0.5f, 0.25f}) == "RGB(1.000, 0.000, 0.500, 0.250)");
+    CHECK(std::format("{}", SRGB{1.f, 0.f, 0.5f, 0.25f}) == "SRGB(1.000, 0.000, 0.500, 0.250)");
     CHECK(std::format("{}", HSL{-90.f, 1.f, 0.5f}) == "HSL(270.000, 1.000, 0.500, 1.000)");
 }
 
 TEST_CASE("std::format applies the spec to each channel", "[colors]")
 {
-    const RGB color{1.f, 0.f, 0.5f, 0.75f};
-    CHECK(std::format("{:.1f}", color) == "RGB(1.0, 0.0, 0.5, 0.8)");
-    CHECK(std::format("{:5.2f}", color) == "RGB( 1.00,  0.00,  0.50,  0.75)");
+    const SRGB color{1.f, 0.f, 0.5f, 0.75f};
+    CHECK(std::format("{:.1f}", color) == "SRGB(1.0, 0.0, 0.5, 0.8)");
+    CHECK(std::format("{:5.2f}", color) == "SRGB( 1.00,  0.00,  0.50,  0.75)");
 }
 
 TEST_CASE("std::format rejects specs that are invalid for a float", "[colors]")
 {
-    const RGB color;
+    const SRGB color;
     CHECK_THROWS_AS(std::vformat("{:s}", std::make_format_args(color)), std::format_error);
 }
 
 TEST_CASE("hex_string round-trips from_hex", "[colors]")
 {
-    CHECK(RGB::from_hex(0xC0'FF'EE).hex_string() == "#C0FFEE");
+    CHECK(SRGB::from_hex(0xC0'FF'EE).hex_string() == "#C0FFEE");
 }
 
 TEST_CASE("Byte conversions round to the nearest value", "[colors]")
 {
-    const RGB color{0.5f, 0.2f, 0.999f, 0.6f};
+    const SRGB color{0.5f, 0.2f, 0.999f, 0.6f};
     CHECK(color.hex_string() == "#8033FF");
     CHECK(color.to_rgba() == 0x80'33'FF'99);
     CHECK(color.to_argb() == 0x99'80'33'FF);
@@ -79,47 +79,47 @@ TEST_CASE("Hue is wrapped to [0, 360)", "[colors]")
 
 TEST_CASE("Negative hues convert like their wrapped equivalent", "[colors]")
 {
-    const auto fromHsl = aest::colors::convert<RGB>(HSL{-120.f, 1.f, 0.5f});
+    const auto fromHsl = aest::colors::convert<SRGB>(HSL{-120.f, 1.f, 0.5f});
     CHECK_THAT(fromHsl.red(), WithinAbs(0., 1e-6));
     CHECK_THAT(fromHsl.green(), WithinAbs(0., 1e-6));
     CHECK_THAT(fromHsl.blue(), WithinAbs(1., 1e-6));
 
-    const auto fromHsv = aest::colors::convert<RGB>(HSV{-60.f, 1.f, 1.f});
-    CHECK(fromHsv == aest::colors::convert<RGB>(HSV{300.f, 1.f, 1.f}));
+    const auto fromHsv = aest::colors::convert<SRGB>(HSV{-60.f, 1.f, 1.f});
+    CHECK(fromHsv == aest::colors::convert<SRGB>(HSV{300.f, 1.f, 1.f}));
 }
 
-TEST_CASE("RGB with more blue than green converts to a positive hue", "[colors]")
+TEST_CASE("SRGB with more blue than green converts to a positive hue", "[colors]")
 {
-    const RGB rose{1.f, 0.f, 0.5f};
+    const SRGB rose{1.f, 0.f, 0.5f};
     CHECK_THAT(aest::colors::convert<HSL>(rose).hue(), WithinAbs(330., 1e-4));
     CHECK_THAT(aest::colors::convert<HSV>(rose).hue(), WithinAbs(330., 1e-4));
 }
 
-TEST_CASE("RGB converts to LinearRGB with the sRGB transfer function", "[colors]")
+TEST_CASE("SRGB converts to LinSRGB with the sRGB transfer function", "[colors]")
 {
-    const auto linear = aest::colors::convert<LinearRGB>(RGB{0.5f, 0.02f, 1.f, 0.25f});
+    const auto linear = aest::colors::convert<LinSRGB>(SRGB{0.5f, 0.02f, 1.f, 0.25f});
     CHECK_THAT(linear.red(), WithinAbs(0.214041, 1e-5));   // ((0.5 + 0.055) / 1.055)^2.4
     CHECK_THAT(linear.green(), WithinAbs(0.001548, 1e-5)); // 0.02 / 12.92
     CHECK(linear.blue() == 1.f);
     CHECK(linear.alpha() == 0.25f);
 }
 
-TEST_CASE("LinearRGB converts to RGB with the sRGB transfer function", "[colors]")
+TEST_CASE("LinSRGB converts to SRGB with the sRGB transfer function", "[colors]")
 {
-    const auto srgb = aest::colors::convert<RGB>(LinearRGB{0.5f, 0.002f, 0.f, 0.75f});
+    const auto srgb = aest::colors::convert<SRGB>(LinSRGB{0.5f, 0.002f, 0.f, 0.75f});
     CHECK_THAT(srgb.red(), WithinAbs(0.735357, 1e-5));  // 1.055 * 0.5^(1 / 2.4) - 0.055
     CHECK_THAT(srgb.green(), WithinAbs(0.02584, 1e-5)); // 0.002 * 12.92
     CHECK(srgb.blue() == 0.f);
     CHECK(srgb.alpha() == 0.75f);
 }
 
-TEST_CASE("RGB round-trips through LinearRGB", "[colors]")
+TEST_CASE("SRGB round-trips through LinSRGB", "[colors]")
 {
     for (std::int32_t value = 0; value <= 255; ++value)
     {
-        const auto byte = static_cast<std::uint8_t>(value);
-        const RGB color = RGB::from_bytes(byte, byte, byte);
-        const RGB back  = aest::colors::convert<RGB>(aest::colors::convert<LinearRGB>(color));
+        const auto byte  = static_cast<std::uint8_t>(value);
+        const SRGB color = SRGB::from_bytes(byte, byte, byte);
+        const SRGB back  = aest::colors::convert<SRGB>(aest::colors::convert<LinSRGB>(color));
         CHECK_THAT(back.red(), WithinAbs(color.red(), 1e-5));
     }
 }
@@ -127,7 +127,7 @@ TEST_CASE("RGB round-trips through LinearRGB", "[colors]")
 namespace
 {
 /** @brief Checks the channels of @p color against the expected RGB values. */
-void check_rgb(const RGB& color, const double red, const double green, const double blue)
+void check_rgb(const SRGB& color, const double red, const double green, const double blue)
 {
     CHECK_THAT(color.red(), WithinAbs(red, 1e-6));
     CHECK_THAT(color.green(), WithinAbs(green, 1e-6));
@@ -141,53 +141,53 @@ constexpr float SECTORS[6][4] = {
 };
 } // namespace
 
-TEST_CASE("HSL converts to RGB", "[colors][conversions]")
+TEST_CASE("HSL converts to SRGB", "[colors][conversions]")
 {
     using aest::colors::convert;
 
     for (const auto& [hue, r, g, b] : SECTORS)
     {
         CAPTURE(hue);
-        check_rgb(convert<RGB>(HSL{hue, 1.f, 0.5f}), r, g, b);
+        check_rgb(convert<SRGB>(HSL{hue, 1.f, 0.5f}), r, g, b);
     }
-    check_rgb(convert<RGB>(HSL{330.f, 1.f, 0.5f}), 1., 0., 0.5);
-    check_rgb(convert<RGB>(HSL{210.f, 0.5f, 0.5f}), 0.25, 0.5, 0.75);
-    check_rgb(convert<RGB>(HSL{123.f, 0.f, 0.3f}), 0.3, 0.3, 0.3);
-    check_rgb(convert<RGB>(HSL{0.f, 1.f, 1.f}), 1., 1., 1.);
-    check_rgb(convert<RGB>(HSL{0.f, 1.f, 0.f}), 0., 0., 0.);
-    CHECK(convert<RGB>(HSL{0.f, 1.f, 0.5f, 0.25f}).alpha() == 0.25f);
+    check_rgb(convert<SRGB>(HSL{330.f, 1.f, 0.5f}), 1., 0., 0.5);
+    check_rgb(convert<SRGB>(HSL{210.f, 0.5f, 0.5f}), 0.25, 0.5, 0.75);
+    check_rgb(convert<SRGB>(HSL{123.f, 0.f, 0.3f}), 0.3, 0.3, 0.3);
+    check_rgb(convert<SRGB>(HSL{0.f, 1.f, 1.f}), 1., 1., 1.);
+    check_rgb(convert<SRGB>(HSL{0.f, 1.f, 0.f}), 0., 0., 0.);
+    CHECK(convert<SRGB>(HSL{0.f, 1.f, 0.5f, 0.25f}).alpha() == 0.25f);
 }
 
-TEST_CASE("HSV converts to RGB", "[colors][conversions]")
+TEST_CASE("HSV converts to SRGB", "[colors][conversions]")
 {
     using aest::colors::convert;
 
     for (const auto& [hue, r, g, b] : SECTORS)
     {
         CAPTURE(hue);
-        check_rgb(convert<RGB>(HSV{hue, 1.f, 1.f}), r, g, b);
+        check_rgb(convert<SRGB>(HSV{hue, 1.f, 1.f}), r, g, b);
     }
-    check_rgb(convert<RGB>(HSV{330.f, 1.f, 1.f}), 1., 0., 0.5);
-    check_rgb(convert<RGB>(HSV{210.f, 2.f / 3.f, 0.75f}), 0.25, 0.5, 0.75);
-    check_rgb(convert<RGB>(HSV{123.f, 0.f, 0.3f}), 0.3, 0.3, 0.3);
-    check_rgb(convert<RGB>(HSV{0.f, 1.f, 0.f}), 0., 0., 0.);
-    CHECK(convert<RGB>(HSV{0.f, 1.f, 1.f, 0.25f}).alpha() == 0.25f);
+    check_rgb(convert<SRGB>(HSV{330.f, 1.f, 1.f}), 1., 0., 0.5);
+    check_rgb(convert<SRGB>(HSV{210.f, 2.f / 3.f, 0.75f}), 0.25, 0.5, 0.75);
+    check_rgb(convert<SRGB>(HSV{123.f, 0.f, 0.3f}), 0.3, 0.3, 0.3);
+    check_rgb(convert<SRGB>(HSV{0.f, 1.f, 0.f}), 0., 0., 0.);
+    CHECK(convert<SRGB>(HSV{0.f, 1.f, 1.f, 0.25f}).alpha() == 0.25f);
 }
 
-TEST_CASE("RGB converts to HSL", "[colors][conversions]")
+TEST_CASE("SRGB converts to HSL", "[colors][conversions]")
 {
     using aest::colors::convert;
 
     for (const auto& [hue, r, g, b] : SECTORS)
     {
         CAPTURE(hue);
-        const HSL hsl = convert<HSL>(RGB{r, g, b});
+        const HSL hsl = convert<HSL>(SRGB{r, g, b});
         CHECK_THAT(hsl.hue(), WithinAbs(hue, 1e-4));
         CHECK_THAT(hsl.saturation(), WithinAbs(1., 1e-6));
         CHECK_THAT(hsl.lightness(), WithinAbs(0.5, 1e-6));
     }
 
-    const HSL blueish = convert<HSL>(RGB{0.25f, 0.5f, 0.75f, 0.25f});
+    const HSL blueish = convert<HSL>(SRGB{0.25f, 0.5f, 0.75f, 0.25f});
     CHECK_THAT(blueish.hue(), WithinAbs(210., 1e-4));
     CHECK_THAT(blueish.saturation(), WithinAbs(0.5, 1e-6));
     CHECK_THAT(blueish.lightness(), WithinAbs(0.5, 1e-6));
@@ -197,27 +197,27 @@ TEST_CASE("RGB converts to HSL", "[colors][conversions]")
     for (const float value : {0.f, 0.3f, 1.f})
     {
         CAPTURE(value);
-        const HSL gray = convert<HSL>(RGB{value, value, value});
+        const HSL gray = convert<HSL>(SRGB{value, value, value});
         CHECK(gray.hue() == 0.f);
         CHECK(gray.saturation() == 0.f);
         CHECK_THAT(gray.lightness(), WithinAbs(value, 1e-6));
     }
 }
 
-TEST_CASE("RGB converts to HSV", "[colors][conversions]")
+TEST_CASE("SRGB converts to HSV", "[colors][conversions]")
 {
     using aest::colors::convert;
 
     for (const auto& [hue, r, g, b] : SECTORS)
     {
         CAPTURE(hue);
-        const HSV hsv = convert<HSV>(RGB{r, g, b});
+        const HSV hsv = convert<HSV>(SRGB{r, g, b});
         CHECK_THAT(hsv.hue(), WithinAbs(hue, 1e-4));
         CHECK_THAT(hsv.saturation(), WithinAbs(1., 1e-6));
         CHECK_THAT(hsv.brightness(), WithinAbs(1., 1e-6));
     }
 
-    const HSV blueish = convert<HSV>(RGB{0.25f, 0.5f, 0.75f, 0.25f});
+    const HSV blueish = convert<HSV>(SRGB{0.25f, 0.5f, 0.75f, 0.25f});
     CHECK_THAT(blueish.hue(), WithinAbs(210., 1e-4));
     CHECK_THAT(blueish.saturation(), WithinAbs(2. / 3., 1e-6));
     CHECK_THAT(blueish.brightness(), WithinAbs(0.75, 1e-6));
@@ -227,14 +227,14 @@ TEST_CASE("RGB converts to HSV", "[colors][conversions]")
     for (const float value : {0.f, 0.3f, 1.f})
     {
         CAPTURE(value);
-        const HSV gray = convert<HSV>(RGB{value, value, value});
+        const HSV gray = convert<HSV>(SRGB{value, value, value});
         CHECK(gray.hue() == 0.f);
         CHECK(gray.saturation() == 0.f);
         CHECK_THAT(gray.brightness(), WithinAbs(value, 1e-6));
     }
 }
 
-TEST_CASE("RGB round-trips through HSL and HSV", "[colors][conversions]")
+TEST_CASE("SRGB round-trips through HSL and HSV", "[colors][conversions]")
 {
     using aest::colors::convert;
 
@@ -242,15 +242,15 @@ TEST_CASE("RGB round-trips through HSL and HSV", "[colors][conversions]")
         for (std::int32_t g = 0; g <= 8; ++g)
             for (std::int32_t b = 0; b <= 8; ++b)
             {
-                const RGB color{r / 8.f, g / 8.f, b / 8.f};
+                const SRGB color{r / 8.f, g / 8.f, b / 8.f};
                 CAPTURE(color.red(), color.green(), color.blue());
 
-                const RGB viaHsl = convert<RGB>(convert<HSL>(color));
+                const SRGB viaHsl = convert<SRGB>(convert<HSL>(color));
                 CHECK_THAT(viaHsl.red(), WithinAbs(color.red(), 1e-5));
                 CHECK_THAT(viaHsl.green(), WithinAbs(color.green(), 1e-5));
                 CHECK_THAT(viaHsl.blue(), WithinAbs(color.blue(), 1e-5));
 
-                const RGB viaHsv = convert<RGB>(convert<HSV>(color));
+                const SRGB viaHsv = convert<SRGB>(convert<HSV>(color));
                 CHECK_THAT(viaHsv.red(), WithinAbs(color.red(), 1e-5));
                 CHECK_THAT(viaHsv.green(), WithinAbs(color.green(), 1e-5));
                 CHECK_THAT(viaHsv.blue(), WithinAbs(color.blue(), 1e-5));
@@ -261,10 +261,10 @@ TEST_CASE("Converting to the same type returns the color unchanged", "[colors][c
 {
     using aest::colors::convert;
 
-    STATIC_REQUIRE(std::is_same_v<decltype(convert<RGB>(RGB{})), RGB>);
-    STATIC_REQUIRE(convert<RGB>(RGB{0.1f, 0.2f, 0.3f, 0.4f}) == RGB{0.1f, 0.2f, 0.3f, 0.4f});
-    STATIC_REQUIRE(convert<LinearRGB>(LinearRGB{0.1f, 0.2f, 0.3f, 0.4f})
-                   == LinearRGB{0.1f, 0.2f, 0.3f, 0.4f});
+    STATIC_REQUIRE(std::is_same_v<decltype(convert<SRGB>(SRGB{})), SRGB>);
+    STATIC_REQUIRE(convert<SRGB>(SRGB{0.1f, 0.2f, 0.3f, 0.4f}) == SRGB{0.1f, 0.2f, 0.3f, 0.4f});
+    STATIC_REQUIRE(convert<LinSRGB>(LinSRGB{0.1f, 0.2f, 0.3f, 0.4f})
+                   == LinSRGB{0.1f, 0.2f, 0.3f, 0.4f});
     STATIC_REQUIRE(convert<HSL>(HSL{210.f, 0.5f, 0.25f, 0.4f}) == HSL{210.f, 0.5f, 0.25f, 0.4f});
     STATIC_REQUIRE(convert<HSV>(HSV{210.f, 0.5f, 0.25f, 0.4f}) == HSV{210.f, 0.5f, 0.25f, 0.4f});
 }
@@ -315,7 +315,7 @@ TEST_CASE("HSV converts to HSL", "[colors][conversions]")
     CHECK(black.lightness() == 0.f);
 }
 
-TEST_CASE("HSL and HSV convert like going through RGB", "[colors][conversions]")
+TEST_CASE("HSL and HSV convert like going through SRGB", "[colors][conversions]")
 {
     using aest::colors::convert;
 
@@ -323,7 +323,7 @@ TEST_CASE("HSL and HSV convert like going through RGB", "[colors][conversions]")
         for (std::int32_t g = 0; g <= 8; ++g)
             for (std::int32_t b = 0; b <= 8; ++b)
             {
-                const RGB color{r / 8.f, g / 8.f, b / 8.f};
+                const SRGB color{r / 8.f, g / 8.f, b / 8.f};
                 CAPTURE(color.red(), color.green(), color.blue());
 
                 const HSL hsl = convert<HSL>(color);
@@ -345,10 +345,10 @@ TEST_CASE("Hue-based conversions are constant expressions", "[colors][conversion
 {
     using aest::colors::convert;
 
-    STATIC_REQUIRE(convert<RGB>(HSL{210.f, 0.5f, 0.5f}) == RGB{0.25f, 0.5f, 0.75f});
-    STATIC_REQUIRE(convert<RGB>(HSV{210.f, 0.5f, 0.75f}) == RGB{0.375f, 0.5625f, 0.75f});
-    STATIC_REQUIRE(convert<HSL>(RGB{0.25f, 0.5f, 0.75f}) == HSL{210.f, 0.5f, 0.5f});
-    STATIC_REQUIRE(convert<HSV>(RGB{1.f, 0.f, 0.5f}) == HSV{330.f, 1.f, 1.f});
+    STATIC_REQUIRE(convert<SRGB>(HSL{210.f, 0.5f, 0.5f}) == SRGB{0.25f, 0.5f, 0.75f});
+    STATIC_REQUIRE(convert<SRGB>(HSV{210.f, 0.5f, 0.75f}) == SRGB{0.375f, 0.5625f, 0.75f});
+    STATIC_REQUIRE(convert<HSL>(SRGB{0.25f, 0.5f, 0.75f}) == HSL{210.f, 0.5f, 0.5f});
+    STATIC_REQUIRE(convert<HSV>(SRGB{1.f, 0.f, 0.5f}) == HSV{330.f, 1.f, 1.f});
     STATIC_REQUIRE(convert<HSV>(HSL{210.f, 0.5f, 0.5f}).hue() == 210.f);
     STATIC_REQUIRE(convert<HSL>(HSV{210.f, 0.5f, 0.75f}).hue() == 210.f);
 }
@@ -358,12 +358,12 @@ TEST_CASE("Conversions chain through the conversion tree", "[colors][conversions
     using aest::colors::convert;
 
     const HSL hsl{210.f, 0.5f, 0.5f, 0.25f};
-    const LinearRGB linear = convert<LinearRGB>(hsl);
-    CHECK(linear == convert<LinearRGB>(convert<RGB>(hsl)));
+    const LinSRGB linear = convert<LinSRGB>(hsl);
+    CHECK(linear == convert<LinSRGB>(convert<SRGB>(hsl)));
     CHECK(linear.alpha() == 0.25f);
 
     const HSV hsv = convert<HSV>(linear);
-    CHECK(hsv == convert<HSV>(convert<RGB>(linear)));
+    CHECK(hsv == convert<HSV>(convert<SRGB>(linear)));
     CHECK_THAT(hsv.hue(), WithinAbs(210., 1e-3));
 }
 
@@ -409,10 +409,10 @@ TEST_CASE("ConvertibleTo follows converters and the conversion tree", "[colors][
 
     STATIC_REQUIRE(aest::colors::ColorType<Gray>);
     STATIC_REQUIRE(ConvertibleTo<HSV, HSL>);
-    STATIC_REQUIRE(ConvertibleTo<LinearRGB, HSL>);
-    STATIC_REQUIRE(ConvertibleTo<HSV, LinearRGB>);
+    STATIC_REQUIRE(ConvertibleTo<LinSRGB, HSL>);
+    STATIC_REQUIRE(ConvertibleTo<HSV, LinSRGB>);
     STATIC_REQUIRE(ConvertibleTo<Gray, Gray>);
-    STATIC_REQUIRE_FALSE(ConvertibleTo<RGB, Gray>);
+    STATIC_REQUIRE_FALSE(ConvertibleTo<SRGB, Gray>);
     STATIC_REQUIRE_FALSE(ConvertibleTo<Gray, HSL>);
 }
 
@@ -426,8 +426,8 @@ TEST_CASE("HSL and HSV clamp saturation, lightness and value", "[colors]")
 
 TEST_CASE("opacity replaces alpha and keeps the channels", "[colors]")
 {
-    constexpr RGB color{0.25f, 0.5f, 0.75f};
-    STATIC_REQUIRE(color.opacity(0.4f) == RGB{0.25f, 0.5f, 0.75f, 0.4f});
+    constexpr SRGB color{0.25f, 0.5f, 0.75f};
+    STATIC_REQUIRE(color.opacity(0.4f) == SRGB{0.25f, 0.5f, 0.75f, 0.4f});
     STATIC_REQUIRE(color.opacity(2.f).alpha() == 1.f);
     STATIC_REQUIRE(color.opacity(-1.f).alpha() == 0.f);
 
@@ -442,25 +442,25 @@ template <typename T>
 concept Addable = requires(T color) { color + color; };
 } // namespace
 
-TEST_CASE("Only LinearRGB has arithmetic operators", "[colors]")
+TEST_CASE("Only LinSRGB has arithmetic operators", "[colors]")
 {
-    STATIC_REQUIRE(Addable<LinearRGB>);
-    STATIC_REQUIRE_FALSE(Addable<RGB>);
+    STATIC_REQUIRE(Addable<LinSRGB>);
+    STATIC_REQUIRE_FALSE(Addable<SRGB>);
     STATIC_REQUIRE_FALSE(Addable<aest::colors::HSL>);
     STATIC_REQUIRE_FALSE(Addable<aest::colors::HSV>);
 }
 
-TEST_CASE("LinearRGB arithmetic is channel-wise and clamped", "[colors]")
+TEST_CASE("LinSRGB arithmetic is channel-wise and clamped", "[colors]")
 {
-    constexpr LinearRGB a{0.5f, 0.25f, 0.75f, 1.f};
-    constexpr LinearRGB b{0.25f, 0.25f, 0.5f, 0.5f};
+    constexpr LinSRGB a{0.5f, 0.25f, 0.75f, 1.f};
+    constexpr LinSRGB b{0.25f, 0.25f, 0.5f, 0.5f};
 
-    STATIC_REQUIRE(a - b == LinearRGB{0.25f, 0.f, 0.25f, 0.5f});
-    STATIC_REQUIRE(b - a == LinearRGB{0.f, 0.f, 0.f, 0.f});
-    STATIC_REQUIRE(a + b == LinearRGB{0.75f, 0.5f, 1.f, 1.f});
-    STATIC_REQUIRE(a * b == LinearRGB{0.125f, 0.0625f, 0.375f, 0.5f});
+    STATIC_REQUIRE(a - b == LinSRGB{0.25f, 0.f, 0.25f, 0.5f});
+    STATIC_REQUIRE(b - a == LinSRGB{0.f, 0.f, 0.f, 0.f});
+    STATIC_REQUIRE(a + b == LinSRGB{0.75f, 0.5f, 1.f, 1.f});
+    STATIC_REQUIRE(a * b == LinSRGB{0.125f, 0.0625f, 0.375f, 0.5f});
 
-    LinearRGB c = a;
+    LinSRGB c = a;
     c -= b;
     CHECK(c == a - b);
     c += b;
@@ -475,34 +475,34 @@ template <typename T>
 concept ScalableByFloat = requires(T color, float scalar) { color * scalar; };
 } // namespace
 
-TEST_CASE("LinearRGB arithmetic combines alpha like the other channels", "[colors]")
+TEST_CASE("LinSRGB arithmetic combines alpha like the other channels", "[colors]")
 {
-    constexpr LinearRGB halfTransparent{0.25f, 0.25f, 0.25f, 0.5f};
+    constexpr LinSRGB halfTransparent{0.25f, 0.25f, 0.25f, 0.5f};
     STATIC_REQUIRE((halfTransparent + halfTransparent).alpha() == 1.f);
     STATIC_REQUIRE((halfTransparent - halfTransparent).alpha() == 0.f);
     STATIC_REQUIRE((halfTransparent * halfTransparent).alpha() == 0.25f);
 }
 
-TEST_CASE("LinearRGB scales by a gray color, not by a scalar", "[colors]")
+TEST_CASE("LinSRGB scales by a gray color, not by a scalar", "[colors]")
 {
-    STATIC_REQUIRE_FALSE(ScalableByFloat<LinearRGB>);
+    STATIC_REQUIRE_FALSE(ScalableByFloat<LinSRGB>);
 
-    LinearRGB color{0.5f, 1.f, 0.25f, 0.5f};
+    LinSRGB color{0.5f, 1.f, 0.25f, 0.5f};
     color *= {0.5f, 0.5f, 0.5f}; // alpha defaults to 1, so opacity is kept
-    CHECK(color == LinearRGB{0.25f, 0.5f, 0.125f, 0.5f});
+    CHECK(color == LinSRGB{0.25f, 0.5f, 0.125f, 0.5f});
 }
 
 TEST_CASE("lighten moves HSL lightness toward white", "[colors][operations]")
 {
     using aest::colors::lighten;
 
-    const RGB gray = lighten(RGB{}, 0.5f);
+    const SRGB gray = lighten(SRGB{}, 0.5f);
     CHECK_THAT(gray.red(), WithinAbs(0.5, 1e-6));
     CHECK_THAT(gray.green(), WithinAbs(0.5, 1e-6));
     CHECK_THAT(gray.blue(), WithinAbs(0.5, 1e-6));
 
     // Orange is HSL(30, 1, 0.5); lightness 0.5 -> 0.75 keeps hue, saturation and alpha
-    const RGB light = lighten(RGB{1.f, 0.5f, 0.f, 0.5f}, 0.5f);
+    const SRGB light = lighten(SRGB{1.f, 0.5f, 0.f, 0.5f}, 0.5f);
     CHECK_THAT(light.red(), WithinAbs(1., 1e-6));
     CHECK_THAT(light.green(), WithinAbs(0.75, 1e-6));
     CHECK_THAT(light.blue(), WithinAbs(0.5, 1e-6));
@@ -513,7 +513,7 @@ TEST_CASE("lighten clamps the amount to [0, 1]", "[colors][operations]")
 {
     using aest::colors::lighten;
 
-    constexpr RGB coral = RGB::from_hex(0xFF'7F'50);
+    constexpr SRGB coral = SRGB::from_hex(0xFF'7F'50);
     CHECK(lighten(coral, 0.f).to_rgba() == coral.to_rgba());
     CHECK(lighten(coral, -1.f).to_rgba() == coral.to_rgba());
     CHECK(lighten(coral, 1.f).to_rgba() == 0xFF'FF'FF'FF);
@@ -525,13 +525,13 @@ TEST_CASE("darken moves HSL lightness toward black", "[colors][operations]")
     using aest::colors::darken;
 
     // Orange is HSL(30, 1, 0.5); lightness 0.5 -> 0.25 keeps hue, saturation and alpha
-    const RGB dark = darken(RGB{1.f, 0.5f, 0.f, 0.5f}, 0.5f);
+    const SRGB dark = darken(SRGB{1.f, 0.5f, 0.f, 0.5f}, 0.5f);
     CHECK_THAT(dark.red(), WithinAbs(0.5, 1e-6));
     CHECK_THAT(dark.green(), WithinAbs(0.25, 1e-6));
     CHECK_THAT(dark.blue(), WithinAbs(0., 1e-6));
     CHECK(dark.alpha() == 0.5f);
 
-    constexpr RGB coral = RGB::from_hex(0xFF'7F'50);
+    constexpr SRGB coral = SRGB::from_hex(0xFF'7F'50);
     CHECK(darken(coral, 0.f).to_rgba() == coral.to_rgba());
     CHECK(darken(coral, -1.f).to_rgba() == coral.to_rgba());
     CHECK(darken(coral, 1.f).to_rgba() == 0x00'00'00'FF);
@@ -541,7 +541,7 @@ TEST_CASE("darken moves HSL lightness toward black", "[colors][operations]")
 namespace
 {
 template <typename Space>
-concept CanLightenIn = requires(RGB color) { aest::colors::lighten<Space>(color, 0.5f); };
+concept CanLightenIn = requires(SRGB color) { aest::colors::lighten<Space>(color, 0.5f); };
 } // namespace
 
 TEST_CASE("The working space is chosen with in<Space>", "[colors][operations]")
@@ -550,7 +550,7 @@ TEST_CASE("The working space is chosen with in<Space>", "[colors][operations]")
     using aest::colors::in;
     using aest::colors::lighten;
 
-    constexpr RGB coral = RGB::from_hex(0xFF'7F'50);
+    constexpr SRGB coral = SRGB::from_hex(0xFF'7F'50);
     CHECK(lighten<HSL>(coral, 0.3f) == lighten(coral, 0.3f));
     CHECK(darken<HSL>(coral, 0.3f) == darken(coral, 0.3f));
 
@@ -564,7 +564,7 @@ TEST_CASE("The working space is chosen with in<Space>", "[colors][operations]")
     CHECK(light.alpha() == 0.75f);
 
     STATIC_REQUIRE(CanLightenIn<HSL>);
-    STATIC_REQUIRE_FALSE(CanLightenIn<RGB>);
+    STATIC_REQUIRE_FALSE(CanLightenIn<SRGB>);
 }
 
 TEST_CASE("Operations convert through the conversion tree", "[colors][operations]")
@@ -575,56 +575,56 @@ TEST_CASE("Operations convert through the conversion tree", "[colors][operations
     using aest::colors::lighten;
     using aest::colors::mix;
 
-    const LinearRGB linear{0.2f, 0.4f, 0.6f, 0.5f};
-    const LinearRGB light    = lighten(linear, 0.5f);
-    const LinearRGB expected = convert<LinearRGB>(lighten(convert<RGB>(linear), 0.5f));
+    const LinSRGB linear{0.2f, 0.4f, 0.6f, 0.5f};
+    const LinSRGB light    = lighten(linear, 0.5f);
+    const LinSRGB expected = convert<LinSRGB>(lighten(convert<SRGB>(linear), 0.5f));
     CHECK_THAT(light.red(), WithinAbs(expected.red(), 1e-6));
     CHECK_THAT(light.green(), WithinAbs(expected.green(), 1e-6));
     CHECK_THAT(light.blue(), WithinAbs(expected.blue(), 1e-6));
     CHECK(light.alpha() == 0.5f);
 
-    // Mixing HSL colors blends their light in LinearRGB
+    // Mixing HSL colors blends their light in LinSRGB
     const HSL red{0.f, 1.f, 0.5f};
     const HSL blue{240.f, 1.f, 0.5f};
-    const RGB blended = convert<RGB>(mix(red, blue, 0.5f));
-    const RGB viaRgb  = mix(convert<RGB>(red), convert<RGB>(blue), 0.5f);
+    const SRGB blended = convert<SRGB>(mix(red, blue, 0.5f));
+    const SRGB viaRgb  = mix(convert<SRGB>(red), convert<SRGB>(blue), 0.5f);
     CHECK_THAT(blended.red(), WithinAbs(viaRgb.red(), 1e-5));
     CHECK_THAT(blended.green(), WithinAbs(viaRgb.green(), 1e-5));
     CHECK_THAT(blended.blue(), WithinAbs(viaRgb.blue(), 1e-5));
 
     // Red and green are a full channel apart in each of two channels
-    CHECK_THAT(euclidean(red, HSV{120.f, 1.f, 1.f}, in<LinearRGB>), WithinAbs(1.414214, 1e-5));
+    CHECK_THAT(euclidean(red, HSV{120.f, 1.f, 1.f}, in<LinSRGB>), WithinAbs(1.414214, 1e-5));
 }
 
-TEST_CASE("mix blends in LinearRGB by default", "[colors][operations]")
+TEST_CASE("mix blends in LinSRGB by default", "[colors][operations]")
 {
     using aest::colors::in;
     using aest::colors::mix;
 
-    const RGB black{0.f, 0.f, 0.f};
-    const RGB white{1.f, 1.f, 1.f};
+    const SRGB black{0.f, 0.f, 0.f};
+    const SRGB white{1.f, 1.f, 1.f};
 
     // Half the light of white, encoded: 1.055 * 0.5^(1 / 2.4) - 0.055
-    const RGB linearMidpoint = mix(black, white, 0.5f);
+    const SRGB linearMidpoint = mix(black, white, 0.5f);
     CHECK_THAT(linearMidpoint.red(), WithinAbs(0.735357, 1e-5));
     CHECK_THAT(linearMidpoint.green(), WithinAbs(0.735357, 1e-5));
     CHECK_THAT(linearMidpoint.blue(), WithinAbs(0.735357, 1e-5));
-    CHECK(mix<LinearRGB>(black, white, 0.5f) == linearMidpoint);
+    CHECK(mix<LinSRGB>(black, white, 0.5f) == linearMidpoint);
 
-    // in<RGB> averages the encoded values, like CSS color-mix(in srgb, ...)
-    CHECK(mix<RGB>(black, white, 0.5f) == RGB{0.5f, 0.5f, 0.5f});
+    // in<SRGB> averages the encoded values, like CSS color-mix(in srgb, ...)
+    CHECK(mix<SRGB>(black, white, 0.5f) == SRGB{0.5f, 0.5f, 0.5f});
 }
 
 TEST_CASE("mix goes from the first color to the second", "[colors][operations]")
 {
     using aest::colors::mix;
 
-    constexpr LinearRGB from{0.25f, 0.5f, 1.f, 0.f};
-    constexpr LinearRGB to{0.75f, 0.f, 0.f, 1.f};
+    constexpr LinSRGB from{0.25f, 0.5f, 1.f, 0.f};
+    constexpr LinSRGB to{0.75f, 0.f, 0.f, 1.f};
 
     STATIC_REQUIRE(mix(from, to, 0.f) == from);
     STATIC_REQUIRE(mix(from, to, 1.f) == to);
-    STATIC_REQUIRE(mix(from, to, 0.25f) == LinearRGB{0.375f, 0.375f, 0.75f, 0.25f});
+    STATIC_REQUIRE(mix(from, to, 0.25f) == LinSRGB{0.375f, 0.375f, 0.75f, 0.25f});
 
     // The amount is clamped to [0, 1]
     STATIC_REQUIRE(mix(from, to, -1.f) == from);
@@ -634,7 +634,7 @@ TEST_CASE("mix goes from the first color to the second", "[colors][operations]")
 namespace
 {
 template <typename Space>
-concept CanMixIn = requires(RGB color) { aest::colors::mix<Space>(color, color, 0.5f); };
+concept CanMixIn = requires(SRGB color) { aest::colors::mix<Space>(color, color, 0.5f); };
 } // namespace
 
 TEST_CASE("mix returns the input type and needs an interpolation space", "[colors][operations]")
@@ -645,36 +645,36 @@ TEST_CASE("mix returns the input type and needs an interpolation space", "[color
     const HSL blue{240.f, 1.f, 0.5f};
     STATIC_REQUIRE(std::is_same_v<decltype(mix(red, blue, 0.5f)), HSL>);
 
-    STATIC_REQUIRE(CanMixIn<LinearRGB>);
-    STATIC_REQUIRE(CanMixIn<RGB>);
+    STATIC_REQUIRE(CanMixIn<LinSRGB>);
+    STATIC_REQUIRE(CanMixIn<SRGB>);
     STATIC_REQUIRE_FALSE(CanMixIn<HSL>);
     STATIC_REQUIRE_FALSE(CanMixIn<HSV>);
 }
 
-TEST_CASE("euclidean measures in RGB by default", "[colors][distance]")
+TEST_CASE("euclidean measures in SRGB by default", "[colors][distance]")
 {
     using aest::colors::euclidean;
     using aest::colors::in;
 
-    const RGB black{0.f, 0.f, 0.f};
-    const RGB white{1.f, 1.f, 1.f};
-    const RGB gray{0.5f, 0.5f, 0.5f};
+    const SRGB black{0.f, 0.f, 0.f};
+    const SRGB white{1.f, 1.f, 1.f};
+    const SRGB gray{0.5f, 0.5f, 0.5f};
 
     CHECK_THAT(euclidean(black, white), WithinAbs(1.732051, 1e-6)); // sqrt(3)
     CHECK_THAT(euclidean(black, gray), WithinAbs(0.866025, 1e-6));  // sqrt(3) * 0.5
-    CHECK(euclidean(black, gray, in<RGB>) == euclidean(black, gray));
+    CHECK(euclidean(black, gray, in<SRGB>) == euclidean(black, gray));
 
     // In linear light the encoded 0.5 gray is only 0.214 bright: sqrt(3) * 0.214041
-    CHECK_THAT(euclidean(black, white, in<LinearRGB>), WithinAbs(1.732051, 1e-6));
-    CHECK_THAT(euclidean(black, gray, in<LinearRGB>), WithinAbs(0.370730, 1e-5));
+    CHECK_THAT(euclidean(black, white, in<LinSRGB>), WithinAbs(1.732051, 1e-6));
+    CHECK_THAT(euclidean(black, gray, in<LinSRGB>), WithinAbs(0.370730, 1e-5));
 }
 
 TEST_CASE("euclidean is symmetric and ignores alpha", "[colors][distance]")
 {
     using aest::colors::euclidean;
 
-    const RGB coral = RGB::from_hex(0xFF'7F'50);
-    const RGB teal  = RGB::from_hex(0x00'80'80);
+    const SRGB coral = SRGB::from_hex(0xFF'7F'50);
+    const SRGB teal  = SRGB::from_hex(0x00'80'80);
 
     CHECK(euclidean(coral, coral) == 0.f);
     CHECK(euclidean(coral, teal) == euclidean(teal, coral));
@@ -685,18 +685,18 @@ namespace
 {
 template <typename Space>
 concept CanMeasureIn =
-    requires(RGB color) { aest::colors::euclidean(color, color, aest::colors::in<Space>); };
+    requires(SRGB color) { aest::colors::euclidean(color, color, aest::colors::in<Space>); };
 } // namespace
 
 TEST_CASE("euclidean accepts mixed color types and needs a Euclidean space", "[colors][distance]")
 {
     using aest::colors::euclidean;
 
-    CHECK_THAT(euclidean(HSL{0.f, 1.f, 0.5f}, RGB{1.f, 0.f, 0.f}), WithinAbs(0., 1e-6));
-    CHECK_THAT(euclidean(HSV{120.f, 1.f, 1.f}, RGB{1.f, 0.f, 0.f}), WithinAbs(1.414214, 1e-6));
+    CHECK_THAT(euclidean(HSL{0.f, 1.f, 0.5f}, SRGB{1.f, 0.f, 0.f}), WithinAbs(0., 1e-6));
+    CHECK_THAT(euclidean(HSV{120.f, 1.f, 1.f}, SRGB{1.f, 0.f, 0.f}), WithinAbs(1.414214, 1e-6));
 
-    STATIC_REQUIRE(CanMeasureIn<RGB>);
-    STATIC_REQUIRE(CanMeasureIn<LinearRGB>);
+    STATIC_REQUIRE(CanMeasureIn<SRGB>);
+    STATIC_REQUIRE(CanMeasureIn<LinSRGB>);
     STATIC_REQUIRE_FALSE(CanMeasureIn<HSL>);
     STATIC_REQUIRE_FALSE(CanMeasureIn<HSV>);
 }
@@ -704,6 +704,6 @@ TEST_CASE("euclidean accepts mixed color types and needs a Euclidean space", "[c
 TEST_CASE("Named CSS colors live in the css namespace", "[colors]")
 {
     namespace css = aest::colors::css;
-    STATIC_REQUIRE(css::coral == RGB::from_hex(0xFF'7F'50));
-    STATIC_REQUIRE(css::midnightBlue == RGB::from_hex(0x19'19'70));
+    STATIC_REQUIRE(css::coral == SRGB::from_hex(0xFF'7F'50));
+    STATIC_REQUIRE(css::midnightBlue == SRGB::from_hex(0x19'19'70));
 }

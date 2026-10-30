@@ -202,7 +202,7 @@ public:
  * @brief Mixin adding channel-wise arithmetic operators to a color type.
  *
  * Inherit it only in color spaces where adding and multiplying channel values
- * is meaningful, such as LinearRGB. Every operator combines both operands on
+ * is meaningful, such as LinSRGB. Every operator combines both operands on
  * all four channels, alpha included: two half-transparent colors add up to an
  * opaque one, and `a - a` is fully transparent. The results are built through
  * the derived type's `(ch1, ch2, ch3, alpha)` constructor, so they are clamped
@@ -290,16 +290,16 @@ private:
  * @brief A color in the sRGB color space, with gamma-encoded channels.
  *
  * This is the encoding of hex codes, 8-bit channels and CSS colors.
- * Convert it to LinearRGB with convert() before blending or other color math.
+ * Convert it to LinSRGB with convert() before blending or other color math.
  */
-export class RGB final : public ColorBase<RGB>
+export class SRGB final : public ColorBase<SRGB>
 {
 public:
     /** @brief Color space name, used by the std::formatter specialization. */
-    static constexpr std::string_view TYPE = "RGB";
+    static constexpr std::string_view TYPE = "SRGB";
 
     /** @brief Default constructor initializes the color to opaque black (0, 0, 0, 1). */
-    constexpr RGB()
+    constexpr SRGB()
         : ColorBase(1.0f, 0.0f, 0.0f, 0.0f)
     {}
 
@@ -311,7 +311,7 @@ public:
      * @param[in] a Alpha channel value (default 1.0)
      * @pre Every channel is finite: NaN and infinities are undefined behavior.
      */
-    constexpr RGB(const float r, const float g, const float b, const float a = 1.0f)
+    constexpr SRGB(const float r, const float g, const float b, const float a = 1.0f)
         : ColorBase(a, clamp(r), clamp(g), clamp(b))
     {}
 
@@ -353,10 +353,10 @@ public:
      * @param[in] a Alpha channel value (default 255)
      * @return The color with each channel scaled to the 0-1 range.
      */
-    static constexpr RGB from_bytes(const std::uint8_t r,
-                                    const std::uint8_t g,
-                                    const std::uint8_t b,
-                                    const std::uint8_t a = 255) noexcept
+    static constexpr SRGB from_bytes(const std::uint8_t r,
+                                     const std::uint8_t g,
+                                     const std::uint8_t b,
+                                     const std::uint8_t a = 255) noexcept
     {
         return {to_float(r), to_float(g), to_float(b), to_float(a)};
     }
@@ -366,7 +366,7 @@ public:
      * @param[in] hex The color as an HTML color code
      * @return The color, fully opaque.
      */
-    static constexpr RGB from_hex(const std::uint32_t hex) noexcept
+    static constexpr SRGB from_hex(const std::uint32_t hex) noexcept
     {
         // Shift the hex color code up one byte and fill with 0xFF
         return from_rgba(hex << 8 | BYTE_MAX);
@@ -377,7 +377,7 @@ public:
      * @param[in] color The color as a 32-bit integer
      * @return The unpacked color.
      */
-    static constexpr RGB from_rgba(const std::uint32_t color) noexcept
+    static constexpr SRGB from_rgba(const std::uint32_t color) noexcept
     {
         return from_bytes(byte_at(color, 3), byte_at(color, 2), byte_at(color, 1),
                           byte_at(color, 0));
@@ -399,7 +399,7 @@ public:
      * @param[in] color The color as a 32-bit integer
      * @return The unpacked color.
      */
-    static constexpr RGB from_argb(const std::uint32_t color) noexcept
+    static constexpr SRGB from_argb(const std::uint32_t color) noexcept
     {
         // AARRGGBB -> RRGGBBAA
         return from_rgba(std::rotl(color, 8));
@@ -423,16 +423,16 @@ public:
  * encoding, so channel values are proportional to light intensity.
  *
  * Blending, averaging and other color math are physically correct only in
- * this space. Convert from and to RGB with convert().
+ * this space. Convert from and to SRGB with convert().
  */
-export class LinearRGB final : public ColorBase<LinearRGB>, public ColorArithmetic<LinearRGB>
+export class LinSRGB final : public ColorBase<LinSRGB>, public ColorArithmetic<LinSRGB>
 {
 public:
     /** @brief Color space name, used by the std::formatter specialization. */
-    static constexpr std::string_view TYPE = "LinearRGB";
+    static constexpr std::string_view TYPE = "LinSRGB";
 
     /** @brief Default constructor initializes the color to opaque black (0, 0, 0, 1). */
-    constexpr LinearRGB()
+    constexpr LinSRGB()
         : ColorBase(1.0f, 0.0f, 0.0f, 0.0f)
     {}
 
@@ -444,7 +444,7 @@ public:
      * @param[in] a Alpha channel value (default 1.0)
      * @pre Every channel is finite: NaN and infinities are undefined behavior.
      */
-    constexpr LinearRGB(const float r, const float g, const float b, const float a = 1.0f)
+    constexpr LinSRGB(const float r, const float g, const float b, const float a = 1.0f)
         : ColorBase(a, clamp(r), clamp(g), clamp(b))
     {}
 

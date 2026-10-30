@@ -20,7 +20,7 @@ Recipes for adding to `aest.colors`, inside the library or from user code.
    template <>
    struct aest::colors::ParentSpace<MySpace>
    {
-       using type = aest::colors::LinearRGB;
+       using type = aest::colors::LinSRGB;
    };
    ```
 3. **Convert to and from the parent.** Specialize aest::colors::Converter
