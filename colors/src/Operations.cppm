@@ -12,19 +12,12 @@ export module aest.colors:operations;
 
 import :color;
 import :converter;
+import :gamut;
+import :transfer;
 import :space;
 
 namespace aest::colors
 {
-/** @brief Weight of linear red in the luminance, from Rec. 709 / sRGB. */
-constexpr float LUMINANCE_RED = 0.2126f;
-
-/** @brief Weight of linear green in the luminance, from Rec. 709 / sRGB. */
-constexpr float LUMINANCE_GREEN = 0.7152f;
-
-/** @brief Weight of linear blue in the luminance, from Rec. 709 / sRGB. */
-constexpr float LUMINANCE_BLUE = 0.0722f;
-
 /** @brief Viewing flare WCAG adds to both luminances of a contrast ratio. */
 constexpr float CONTRAST_FLARE = 0.05f;
 
@@ -157,35 +150,25 @@ constexpr Color darken(const Color& color,
 template <ColorType Space>
 struct Interpolation;
 
-/** @brief Interpolation of linear sRGB, channel by channel. */
-template <>
-struct Interpolation<LinSRGB>
+/**
+ * @brief Interpolation of an RGB space, channel by channel: linear spaces
+ *        blend the light, encoded ones the encoded values.
+ * @tparam Gamut The gamut tag
+ * @tparam Transfer The transfer function tag
+ */
+template <RGBGamut Gamut, TransferFunction Transfer>
+struct Interpolation<BasicRGB<Gamut, Transfer>>
 {
     /**
-     * @brief Interpolates the light and alpha of two colors.
+     * @brief Interpolates the channels and alpha of two colors.
      * @param[in] from The color at @p amount 0
      * @param[in] to The color at @p amount 1
      * @param[in] amount Position between the two colors, in the 0-1 range
      * @return The interpolated color.
      */
-    static constexpr LinSRGB lerp(const LinSRGB& from, const LinSRGB& to, const float amount)
-    {
-        return lerp_channels(from, to, amount);
-    }
-};
-
-/** @brief Interpolation of gamma-encoded sRGB, channel by channel. */
-template <>
-struct Interpolation<SRGB>
-{
-    /**
-     * @brief Interpolates the encoded channels and alpha of two colors.
-     * @param[in] from The color at @p amount 0
-     * @param[in] to The color at @p amount 1
-     * @param[in] amount Position between the two colors, in the 0-1 range
-     * @return The interpolated color.
-     */
-    static constexpr SRGB lerp(const SRGB& from, const SRGB& to, const float amount)
+    static constexpr BasicRGB<Gamut, Transfer> lerp(const BasicRGB<Gamut, Transfer>& from,
+                                                    const BasicRGB<Gamut, Transfer>& to,
+                                                    const float amount)
     {
         return lerp_channels(from, to, amount);
     }
@@ -234,21 +217,20 @@ constexpr Color mix(const Color& from,
  * @brief Relative luminance of a color: the light it emits, weighted by how
  *        bright each primary looks.
  *
- * The color is converted to LinSRGB and its channels weighted with the
- * Rec. 709 / sRGB coefficients, ignoring alpha. White gives 1 and black 0;
- * HDR colors give more than 1.
+ * The Y of the color converted to XYZ, ignoring alpha: for LinSRGB, its
+ * channels weighted with the Rec. 709 / sRGB coefficients, about 0.2126,
+ * 0.7152 and 0.0722, and likewise for every gamut with its own matrix. White
+ * gives 1 and black 0; HDR colors give more than 1.
  *
  * @tparam Color The color type of @p color
  * @param[in] color The color to measure
  * @return The relative luminance, 0 or greater.
  */
 template <ColorType Color>
-    requires ConvertibleTo<LinSRGB, Color>
+    requires ConvertibleTo<XYZ, Color>
 constexpr float luminance(const Color& color)
 {
-    const LinSRGB linear = convert<LinSRGB>(color);
-    return LUMINANCE_RED * linear.red() + LUMINANCE_GREEN * linear.green()
-         + LUMINANCE_BLUE * linear.blue();
+    return convert<XYZ>(color).y();
 }
 
 /**

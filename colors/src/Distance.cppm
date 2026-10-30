@@ -11,6 +11,8 @@ export module aest.colors:distance;
 
 import :color;
 import :converter;
+import :gamut;
+import :transfer;
 import :space;
 
 namespace aest::colors
@@ -48,34 +50,24 @@ export namespace aest::colors
 template <ColorType Space>
 struct Euclidean;
 
-/** @brief Euclidean distance in gamma-encoded sRGB. */
-template <>
-struct Euclidean<SRGB>
+/**
+ * @brief Euclidean distance in an RGB space: between the encoded values of
+ *        encoded spaces, between the light of linear ones.
+ * @tparam Gamut The gamut tag
+ * @tparam Transfer The transfer function tag
+ */
+template <RGBGamut Gamut, TransferFunction Transfer>
+struct Euclidean<BasicRGB<Gamut, Transfer>>
 {
     /**
-     * @brief Distance between the encoded channels of two colors, ignoring alpha.
-     * @param[in] color1 First color
-     * @param[in] color2 Second color
-     * @return The distance, in the 0-sqrt(3) range.
-     */
-    static float distance(const SRGB& color1, const SRGB& color2)
-    {
-        return channel_distance(color1, color2);
-    }
-};
-
-/** @brief Euclidean distance in linear sRGB. */
-template <>
-struct Euclidean<LinSRGB>
-{
-    /**
-     * @brief Distance between the light of two colors, ignoring alpha.
+     * @brief Distance between the channels of two colors, ignoring alpha.
      * @param[in] color1 First color
      * @param[in] color2 Second color
      * @return The distance, 0 or greater: in the 0-sqrt(3) range when no
      *         channel exceeds 1, unbounded for HDR colors.
      */
-    static float distance(const LinSRGB& color1, const LinSRGB& color2)
+    static float distance(const BasicRGB<Gamut, Transfer>& color1,
+                          const BasicRGB<Gamut, Transfer>& color2)
     {
         return channel_distance(color1, color2);
     }

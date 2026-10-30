@@ -14,6 +14,7 @@ export module aest.colors:compositing;
 
 import :color;
 import :converter;
+import :gamut;
 import :space;
 
 export namespace aest::colors

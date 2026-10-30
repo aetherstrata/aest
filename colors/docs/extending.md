@@ -39,6 +39,51 @@ translation unit, and a later specialization would not change the result.
 Test the round trip through the parent, a few known values, alpha
 preservation, and `ConvertibleTo` with an existing space.
 
+## Adding an RGB gamut
+
+An RGB space with new primaries needs only a gamut tag: aest::colors::BasicRGB
+derives its matrices, places it in the conversion tree and gives it the
+operations every RGB space has.
+
+```cpp
+struct AdobeRGBGamut
+{
+    static constexpr std::string_view NAME = "AdobeRGB";
+    static constexpr aest::colors::Chromaticity RED   = {0.64, 0.33};
+    static constexpr aest::colors::Chromaticity GREEN = {0.21, 0.71};
+    static constexpr aest::colors::Chromaticity BLUE  = {0.15, 0.06};
+    static constexpr aest::colors::Chromaticity WHITE = aest::colors::D65;
+};
+
+using LinAdobeRGB = aest::colors::BasicRGB<AdobeRGBGamut, aest::colors::tf::Linear>;
+```
+
+A white point other than D65 is adapted to it with the Bradford transform.
+Specialize aest::colors::RGB_NAME when the space has a name of its own
+rather than the transfer prefix and the gamut name. Test the matrix against
+the published one, and that white maps to the D65 white of XYZ.
+
+## Adding a transfer function
+
+A transfer function tag is a type with a `PREFIX` for the name and static
+`encode`, `decode` and `clamp` functions, checked by
+aest::colors::TransferFunction. Pair it with any gamut: the converters to and
+from the gamut's linear space are already partial specializations of
+aest::colors::Converter.
+
+```cpp
+struct Gamma22
+{
+    static constexpr std::string_view PREFIX = "Gamma22";
+    static float encode(float value) { return std::pow(value, 1.f / 2.2f); }
+    static float decode(float value) { return std::pow(value, 2.2f); }
+    static constexpr float clamp(float value) { return std::clamp(value, 0.f, 1.f); }
+};
+```
+
+Mark `encode` and `decode` `constexpr` only if they avoid `<cmath>`. Test
+known encoded values and the round trip through the linear space.
+
 ## Adding an operation
 
 1. **Write the trait.** Declare a class template over the color space, left

@@ -7,7 +7,6 @@
 module;
 #include <algorithm>
 #include <array>
-#include <cmath>
 #include <concepts>
 #include <cstdint>
 #include <numeric>
@@ -17,12 +16,10 @@ export module aest.colors:converter;
 import aest.blas;
 import :color;
 import :gamut;
+import :transfer;
 
 namespace aest::colors
 {
-/** @brief Exponent of the sRGB transfer function. */
-constexpr float SRGB_GAMMA = 2.4f;
-
 /**
  * @brief Hue of an sRGB color, shared by the HSL and HSV conversions.
  * @param[in] r Red channel value
@@ -299,20 +296,29 @@ struct Converter<ColorOut, ColorIn>
     static constexpr auto convert(const ColorIn& color) -> ColorOut { return color; }
 };
 
-/** @brief LinSRGB converts through XYZ, the root of the conversion tree. */
-template <>
-struct ParentSpace<LinSRGB>
+/**
+ * @brief A linear RGB space converts through XYZ, the root of the conversion
+ *        tree, with the matrix of its gamut.
+ * @tparam Gamut The gamut tag
+ */
+template <RGBGamut Gamut>
+struct ParentSpace<BasicRGB<Gamut, tf::Linear>>
 {
     /** @brief The parent space. */
     using type = XYZ;
 };
 
-/** @brief SRGB converts through LinSRGB. */
-template <>
-struct ParentSpace<SRGB>
+/**
+ * @brief An encoded RGB space converts through the linear space of its gamut.
+ * @tparam Gamut The gamut tag
+ * @tparam Transfer The transfer function tag, other than tf::Linear
+ */
+template <RGBGamut Gamut, TransferFunction Transfer>
+    requires(!std::same_as<Transfer, tf::Linear>)
+struct ParentSpace<BasicRGB<Gamut, Transfer>>
 {
     /** @brief The parent space. */
-    using type = LinSRGB;
+    using type = BasicRGB<Gamut, tf::Linear>;
 };
 
 /** @brief HSL converts through SRGB. */
@@ -454,104 +460,87 @@ struct Converter<HSL, HSV>
     }
 };
 
-/** @brief Converts sRGB to linear sRGB by removing the gamma encoding. */
-template <>
-struct Converter<LinSRGB, SRGB>
+/**
+ * @brief Decodes an encoded RGB space to the linear space of its gamut.
+ * @tparam Gamut The gamut tag
+ * @tparam Transfer The transfer function tag, other than tf::Linear
+ */
+template <RGBGamut Gamut, TransferFunction Transfer>
+    requires(!std::same_as<Transfer, tf::Linear>)
+struct Converter<BasicRGB<Gamut, tf::Linear>, BasicRGB<Gamut, Transfer>>
 {
     /**
-     * @brief Convert a color channel value from sRGB to linear space.
-     * @param[in] value The sRGB value in the 0-1 range.
-     * @return The linear value in the 0-1 range.
-     * @note This function is implemented according to the sRGB standard,
-     * as defined by W3C in "https://www.w3.org/Graphics/Color/sRGB.html".
-     * @note Not constexpr: std::pow is constexpr only since C++26.
-     */
-    static float srgb_to_linear(const float value)
-    {
-        if (value == 1)
-            return 1;
-
-        return value <= 0.04045f ? value / 12.92f : std::pow((value + 0.055f) / 1.055f, SRGB_GAMMA);
-    }
-
-    /**
-     * @brief Applies the inverse sRGB transfer function to each color channel.
+     * @brief Applies the inverse transfer function to each color channel.
      * @param[in] color The color to convert
-     * @return The same color in linear sRGB, with the same alpha
+     * @return The same color in linear light, with the same alpha
      */
-    static LinSRGB convert(const SRGB& color)
+    static BasicRGB<Gamut, tf::Linear> convert(const BasicRGB<Gamut, Transfer>& color)
     {
-        return LinSRGB{srgb_to_linear(color.red()), srgb_to_linear(color.green()),
-                       srgb_to_linear(color.blue()), color.alpha()};
+        return {Transfer::decode(color.red()), Transfer::decode(color.green()),
+                Transfer::decode(color.blue()), color.alpha()};
     }
 };
 
-/** @brief Converts linear sRGB to sRGB by applying the gamma encoding. */
-template <>
-struct Converter<SRGB, LinSRGB>
+/**
+ * @brief Encodes the linear space of a gamut with a transfer function.
+ * @tparam Gamut The gamut tag
+ * @tparam Transfer The transfer function tag, other than tf::Linear
+ */
+template <RGBGamut Gamut, TransferFunction Transfer>
+    requires(!std::same_as<Transfer, tf::Linear>)
+struct Converter<BasicRGB<Gamut, Transfer>, BasicRGB<Gamut, tf::Linear>>
 {
     /**
-     * @brief Convert a color channel value from linear space to sRGB.
-     * @param[in] value The linear value, 0 or greater.
-     * @return The sRGB value in the 0-1 range: values from 1 up give 1.
-     * @note This function is implemented according to the sRGB standard, as defined
-     *       by W3C in "https://www.w3.org/Graphics/Color/sRGB.html".
-     * @note Not constexpr: std::pow is constexpr only since C++26.
-     */
-    static float linear_to_srgb(const float value)
-    {
-        if (value >= 1.f)
-            return 1.f;
-
-        return value <= 0.0031308f ? 12.92f * value
-                                   : 1.055f * std::pow(value, 1.0f / SRGB_GAMMA) - 0.055f;
-    }
-
-    /**
-     * @brief Applies the sRGB transfer function to each color channel.
+     * @brief Applies the transfer function to each color channel.
      * @param[in] color The color to convert
-     * @return The same color in sRGB, with the same alpha
+     * @return The same color encoded, with the same alpha
      */
-    static SRGB convert(const LinSRGB& color)
+    static BasicRGB<Gamut, Transfer> convert(const BasicRGB<Gamut, tf::Linear>& color)
     {
-        return SRGB{linear_to_srgb(color.red()), linear_to_srgb(color.green()),
-                    linear_to_srgb(color.blue()), color.alpha()};
+        return {Transfer::encode(color.red()), Transfer::encode(color.green()),
+                Transfer::encode(color.blue()), color.alpha()};
     }
 };
 
-/** @brief Converts linear sRGB to XYZ with the matrix of its primaries. */
-template <>
-struct Converter<XYZ, LinSRGB>
+/**
+ * @brief Converts linear RGB to XYZ with the matrix of its gamut.
+ * @tparam Gamut The gamut tag
+ */
+template <RGBGamut Gamut>
+struct Converter<XYZ, BasicRGB<Gamut, tf::Linear>>
 {
     /**
      * @brief Converts @p color to XYZ.
      * @param[in] color The color to convert
      * @return The same color in XYZ, with the same alpha
      */
-    static constexpr XYZ convert(const LinSRGB& color)
+    static constexpr XYZ convert(const BasicRGB<Gamut, tf::Linear>& color)
     {
         const Vector3 xyz =
-            blas::multiply(LIN_SRGB_TO_XYZ, {color.red(), color.green(), color.blue()});
+            blas::multiply(RGB_TO_XYZ<Gamut>, {color.red(), color.green(), color.blue()});
         return XYZ{static_cast<float>(xyz[0]), static_cast<float>(xyz[1]),
                    static_cast<float>(xyz[2]), color.alpha()};
     }
 };
 
-/** @brief Converts XYZ to linear sRGB, clipping colors outside the gamut at 0. */
-template <>
-struct Converter<LinSRGB, XYZ>
+/**
+ * @brief Converts XYZ to linear RGB, clipping colors outside the gamut at 0.
+ * @tparam Gamut The gamut tag
+ */
+template <RGBGamut Gamut>
+struct Converter<BasicRGB<Gamut, tf::Linear>, XYZ>
 {
     /**
-     * @brief Converts @p color to linear sRGB.
+     * @brief Converts @p color to the linear RGB of @p Gamut.
      * @param[in] color The color to convert
-     * @return The same color in linear sRGB, with the same alpha; channels a
-     *         color outside the sRGB gamut would need below 0 are 0
+     * @return The same color in linear RGB, with the same alpha; channels a
+     *         color outside the gamut would need below 0 are 0
      */
-    static constexpr LinSRGB convert(const XYZ& color)
+    static constexpr BasicRGB<Gamut, tf::Linear> convert(const XYZ& color)
     {
-        const Vector3 rgb = blas::multiply(XYZ_TO_LIN_SRGB, {color.x(), color.y(), color.z()});
-        return LinSRGB{static_cast<float>(rgb[0]), static_cast<float>(rgb[1]),
-                       static_cast<float>(rgb[2]), color.alpha()};
+        const Vector3 rgb = blas::multiply(XYZ_TO_RGB<Gamut>, {color.x(), color.y(), color.z()});
+        return {static_cast<float>(rgb[0]), static_cast<float>(rgb[1]), static_cast<float>(rgb[2]),
+                color.alpha()};
     }
 };
 

@@ -8,6 +8,7 @@
 export module aest.colors:named_colors;
 
 import :color;
+import :gamut;
 
 /**
  * @brief The CSS named colors, kept out of aest::colors so their short names

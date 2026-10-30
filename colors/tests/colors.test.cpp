@@ -5,8 +5,10 @@
  * @brief Unit tests for `aest.colors`.
  */
 
+#include <algorithm>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <cmath>
 #include <cstdint>
 #include <format>
 #include <string>
@@ -833,16 +835,22 @@ TEST_CASE("over composites source-over in premultiplied linear light", "[colors]
     STATIC_REQUIRE(frame == PremulLin{0.5f, 0.f, 0.5f, 1.f});
 }
 
-TEST_CASE("luminance weights linear light with the Rec. 709 coefficients", "[colors][operations]")
+TEST_CASE("luminance is the Y of XYZ", "[colors][operations]")
 {
     using aest::colors::luminance;
 
     STATIC_REQUIRE(luminance(LinSRGB{1.f, 1.f, 1.f}) == 1.f);
     STATIC_REQUIRE(luminance(LinSRGB{0.f, 0.f, 0.f}) == 0.f);
-    STATIC_REQUIRE(luminance(LinSRGB{1.f, 0.f, 0.f, 0.25f}) == 0.2126f);
-    STATIC_REQUIRE(luminance(LinSRGB{0.f, 1.f, 0.f}) == 0.7152f);
-    STATIC_REQUIRE(luminance(LinSRGB{0.f, 0.f, 1.f}) == 0.0722f);
     STATIC_REQUIRE(luminance(LinSRGB{2.f, 2.f, 2.f}) == 2.f);
+
+    // For sRGB, the Rec. 709 coefficients, derived from the primaries
+    CHECK_THAT(luminance(LinSRGB{1.f, 0.f, 0.f, 0.25f}), WithinAbs(0.2126, 1e-4));
+    CHECK_THAT(luminance(LinSRGB{0.f, 1.f, 0.f}), WithinAbs(0.7152, 1e-4));
+    CHECK_THAT(luminance(LinSRGB{0.f, 0.f, 1.f}), WithinAbs(0.0722, 1e-4));
+
+    // Other gamuts weight their own primaries
+    CHECK_THAT(luminance(aest::colors::LinRec2020{1.f, 0.f, 0.f}), WithinAbs(0.262700, 1e-6));
+    CHECK_THAT(luminance(aest::colors::LinDisplayP3{1.f, 1.f, 1.f}), WithinAbs(1., 1e-6));
 
     // Other spaces are linearized first
     CHECK_THAT(luminance(SRGB::from_hex(0x80'80'80)), WithinAbs(0.215861, 1e-5));
@@ -954,4 +962,182 @@ TEST_CASE("XYZ is the root of the conversion tree", "[colors][xyz]")
     const XYZ white = convert<XYZ>(SRGB::from_hex(0xFF'FF'FF));
     CHECK_THAT(white.y(), WithinAbs(1., 1e-6));
     CHECK(std::format("{:.2f}", XYZ{0.5f, 1.f, 0.25f}) == "XYZ(0.50, 1.00, 0.25, 1.00)");
+}
+
+namespace
+{
+using aest::colors::ACEScg;
+using aest::colors::DisplayP3;
+using aest::colors::LinDisplayP3;
+using aest::colors::LinRec2020;
+
+template <typename T>
+concept HasFromHex = requires { T::from_hex(0u); };
+} // namespace
+
+TEST_CASE("BasicRGB names each space after its gamut and transfer", "[colors][gamut]")
+{
+    STATIC_REQUIRE(SRGB::TYPE == "SRGB");
+    STATIC_REQUIRE(LinSRGB::TYPE == "LinSRGB");
+    STATIC_REQUIRE(DisplayP3::TYPE == "DisplayP3");
+    STATIC_REQUIRE(LinDisplayP3::TYPE == "LinDisplayP3");
+    STATIC_REQUIRE(LinRec2020::TYPE == "LinRec2020");
+    STATIC_REQUIRE(ACEScg::TYPE == "ACEScg");
+    CHECK(std::format("{:.1f}", DisplayP3{1.f, 0.5f, 0.f}) == "DisplayP3(1.0, 0.5, 0.0, 1.0)");
+}
+
+TEST_CASE("BasicRGB clamps and adds arithmetic by transfer function", "[colors][gamut]")
+{
+    using aest::colors::BoundedRGBSpace;
+    using aest::colors::LinearRGBSpace;
+    using aest::colors::RGBSpace;
+
+    STATIC_REQUIRE(DisplayP3{2.f, -1.f, 0.5f} == DisplayP3{1.f, 0.f, 0.5f});
+    STATIC_REQUIRE(LinDisplayP3{2.f, -1.f, 0.5f} == LinDisplayP3{2.f, 0.f, 0.5f});
+
+    STATIC_REQUIRE(Addable<LinDisplayP3>);
+    STATIC_REQUIRE(Addable<ACEScg>);
+    STATIC_REQUIRE_FALSE(Addable<DisplayP3>);
+    STATIC_REQUIRE(ScalableByFloat<LinRec2020>);
+
+    STATIC_REQUIRE(RGBSpace<DisplayP3>);
+    STATIC_REQUIRE_FALSE(RGBSpace<HSL>);
+    STATIC_REQUIRE_FALSE(RGBSpace<XYZ>);
+    STATIC_REQUIRE(LinearRGBSpace<ACEScg>);
+    STATIC_REQUIRE_FALSE(LinearRGBSpace<SRGB>);
+    STATIC_REQUIRE(BoundedRGBSpace<DisplayP3>);
+    STATIC_REQUIRE_FALSE(BoundedRGBSpace<LinSRGB>);
+
+    // Hex codes and bytes stay with SRGB, the space they are written in
+    STATIC_REQUIRE(HasFromHex<SRGB>);
+    STATIC_REQUIRE_FALSE(HasFromHex<DisplayP3>);
+    STATIC_REQUIRE_FALSE(HasFromHex<LinSRGB>);
+}
+
+TEST_CASE("Gamut matrices are derived from the chromaticities", "[colors][gamut]")
+{
+    using aest::colors::convert;
+
+    check_xyz(convert<XYZ>(LinDisplayP3{1.f, 0.f, 0.f}), 0.486571, 0.228975, 0., 1e-6);
+    check_xyz(convert<XYZ>(LinRec2020{1.f, 0.f, 0.f}), 0.636958, 0.262700, 0., 1e-6);
+
+    // Every gamut maps its white to the D65 white, ACEScg through Bradford adaptation
+    check_xyz(convert<XYZ>(LinDisplayP3{1.f, 1.f, 1.f}), 0.950456, 1., 1.089058, 1e-6);
+    check_xyz(convert<XYZ>(ACEScg{1.f, 1.f, 1.f}), 0.950456, 1., 1.089058, 1e-6);
+
+    // The usual ACEScg to linear sRGB matrix, first row
+    const LinSRGB red = convert<LinSRGB>(ACEScg{1.f, 0.f, 0.f});
+    CHECK_THAT(red.red(), WithinAbs(1.705051, 1e-5));
+    STATIC_REQUIRE(convert<XYZ>(LinDisplayP3{0.f, 0.f, 0.f}) == XYZ{});
+}
+
+TEST_CASE("Wide gamuts round-trip, encoded and linear", "[colors][gamut]")
+{
+    using aest::colors::convert;
+
+    const DisplayP3 p3{0.25f, 0.5f, 0.75f, 0.5f};
+    const DisplayP3 p3Back = convert<DisplayP3>(convert<XYZ>(p3));
+    CHECK_THAT(p3Back.red(), WithinAbs(p3.red(), 1e-5));
+    CHECK_THAT(p3Back.green(), WithinAbs(p3.green(), 1e-5));
+    CHECK_THAT(p3Back.blue(), WithinAbs(p3.blue(), 1e-5));
+    CHECK(p3Back.alpha() == 0.5f);
+
+    // Every sRGB color fits in the wider gamuts, so it comes back unchanged
+    const SRGB srgb = SRGB::from_hex(0x33'99'CC);
+    for (const SRGB back :
+         {convert<SRGB>(convert<DisplayP3>(srgb)), convert<SRGB>(convert<LinRec2020>(srgb)),
+          convert<SRGB>(convert<ACEScg>(srgb))})
+    {
+        CHECK_THAT(back.red(), WithinAbs(srgb.red(), 1e-5));
+        CHECK_THAT(back.green(), WithinAbs(srgb.green(), 1e-5));
+        CHECK_THAT(back.blue(), WithinAbs(srgb.blue(), 1e-5));
+    }
+
+    // Converting within one gamut skips XYZ
+    const LinDisplayP3 linear = convert<LinDisplayP3>(p3);
+    CHECK_THAT(linear.red(), WithinAbs(0.050876, 1e-5));
+}
+
+TEST_CASE("Colors outside the sRGB gamut clip at 0", "[colors][gamut]")
+{
+    using aest::colors::convert;
+
+    // P3 red needs negative green and blue in sRGB, and more than 1 red
+    const LinSRGB linear = convert<LinSRGB>(LinDisplayP3{1.f, 0.f, 0.f});
+    CHECK_THAT(linear.red(), WithinAbs(1.224940, 1e-5));
+    CHECK(linear.green() == 0.f);
+    CHECK(linear.blue() == 0.f);
+
+    const SRGB encoded = convert<SRGB>(DisplayP3{1.f, 0.f, 0.f});
+    CHECK(encoded == SRGB{1.f, 0.f, 0.f});
+}
+
+TEST_CASE("Operations work on every RGB gamut", "[colors][gamut]")
+{
+    using aest::colors::mix;
+
+    // mix in LinDisplayP3 keeps the P3 red that LinSRGB would clip
+    const DisplayP3 red{1.f, 0.f, 0.f};
+    CHECK(mix<LinDisplayP3>(red, red, 0.5f) == red);
+    CHECK(mix<DisplayP3>(red, DisplayP3{0.f, 0.f, 1.f}, 0.5f) == DisplayP3{0.5f, 0.f, 0.5f});
+    CHECK_THAT(aest::colors::euclidean(LinDisplayP3{1.f, 0.f, 0.f}, LinDisplayP3{},
+                                       aest::colors::in<LinDisplayP3>),
+               WithinAbs(1., 1e-6));
+
+    using PremulP3 = aest::colors::Premultiplied<LinDisplayP3>;
+    STATIC_REQUIRE(PremulP3::TYPE == "Premultiplied<LinDisplayP3>");
+    STATIC_REQUIRE(aest::colors::over<LinDisplayP3>(LinDisplayP3{1.f, 0.f, 0.f, 0.5f},
+                                                    LinDisplayP3{0.f, 0.f, 1.f})
+                   == LinDisplayP3{0.5f, 0.f, 0.5f});
+}
+
+namespace
+{
+/** @brief The Adobe RGB (1998) gamut, defined outside the library. */
+struct AdobeRGBGamut
+{
+    static constexpr std::string_view NAME            = "AdobeRGB";        ///< Color space name.
+    static constexpr aest::colors::Chromaticity RED   = {0.64, 0.33};      ///< Red primary.
+    static constexpr aest::colors::Chromaticity GREEN = {0.21, 0.71};      ///< Green primary.
+    static constexpr aest::colors::Chromaticity BLUE  = {0.15, 0.06};      ///< Blue primary.
+    static constexpr aest::colors::Chromaticity WHITE = aest::colors::D65; ///< White point.
+};
+
+/** @brief A pure 2.2 gamma, defined outside the library. */
+struct Gamma22
+{
+    static constexpr std::string_view PREFIX = "Gamma22"; ///< Name prefix.
+
+    /** @brief Encode. @param[in] value Linear value. @return Encoded value. */
+    static float encode(const float value) { return std::pow(value, 1.f / 2.2f); }
+
+    /** @brief Decode. @param[in] value Encoded value. @return Linear value. */
+    static float decode(const float value) { return std::pow(value, 2.2f); }
+
+    /** @brief Clamp. @param[in] value Channel value. @return Value in [0, 1]. */
+    static constexpr float clamp(const float value) { return std::clamp(value, 0.f, 1.f); }
+};
+
+using LinAdobeRGB = aest::colors::BasicRGB<AdobeRGBGamut, aest::colors::tf::Linear>;
+using AdobeRGB    = aest::colors::BasicRGB<AdobeRGBGamut, Gamma22>;
+} // namespace
+
+TEST_CASE("Gamuts and transfer functions defined outside the library join the tree",
+          "[colors][gamut]")
+{
+    using aest::colors::convert;
+
+    STATIC_REQUIRE(LinAdobeRGB::TYPE == "LinAdobeRGB");
+    STATIC_REQUIRE(AdobeRGB::TYPE == "Gamma22AdobeRGB");
+    STATIC_REQUIRE(aest::colors::ConvertibleTo<HSL, AdobeRGB>);
+
+    // The red column of the published Adobe RGB (1998) matrix
+    check_xyz(convert<XYZ>(LinAdobeRGB{1.f, 0.f, 0.f}), 0.5767, 0.2973, 0.0270, 1e-4);
+
+    const AdobeRGB gray = convert<AdobeRGB>(LinAdobeRGB{0.5f, 0.5f, 0.5f});
+    CHECK_THAT(gray.red(), WithinAbs(0.729740, 1e-5)); // 0.5^(1 / 2.2)
+
+    const SRGB srgb = SRGB::from_hex(0x33'99'CC);
+    const SRGB back = convert<SRGB>(convert<AdobeRGB>(srgb));
+    CHECK_THAT(back.green(), WithinAbs(srgb.green(), 1e-5));
 }
