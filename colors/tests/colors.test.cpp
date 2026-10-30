@@ -101,8 +101,8 @@ TEST_CASE("SRGB with more blue than green converts to a positive hue", "[colors]
 TEST_CASE("SRGB converts to LinSRGB with the sRGB transfer function", "[colors]")
 {
     const auto linear = aest::colors::convert<LinSRGB>(SRGB{0.5f, 0.02f, 1.f, 0.25f});
-    CHECK_THAT(linear.red(), WithinAbs(0.214041, 1e-5));   // ((0.5 + 0.055) / 1.055)^2.4
-    CHECK_THAT(linear.green(), WithinAbs(0.001548, 1e-5)); // 0.02 / 12.92
+    CHECK_THAT(linear.red(), WithinAbs(0.214041, 1e-06));   // ((0.5 + 0.055) / 1.055)^2.4
+    CHECK_THAT(linear.green(), WithinAbs(0.001548, 1e-06)); // 0.02 / 12.92
     CHECK(linear.blue() == 1.f);
     CHECK(linear.alpha() == 0.25f);
 }
@@ -110,8 +110,8 @@ TEST_CASE("SRGB converts to LinSRGB with the sRGB transfer function", "[colors]"
 TEST_CASE("LinSRGB converts to SRGB with the sRGB transfer function", "[colors]")
 {
     const auto srgb = aest::colors::convert<SRGB>(LinSRGB{0.5f, 0.002f, 0.f, 0.75f});
-    CHECK_THAT(srgb.red(), WithinAbs(0.735357, 1e-5));  // 1.055 * 0.5^(1 / 2.4) - 0.055
-    CHECK_THAT(srgb.green(), WithinAbs(0.02584, 1e-5)); // 0.002 * 12.92
+    CHECK_THAT(srgb.red(), WithinAbs(0.735357, 1e-06));  // 1.055 * 0.5^(1 / 2.4) - 0.055
+    CHECK_THAT(srgb.green(), WithinAbs(0.02584, 1e-06)); // 0.002 * 12.92
     CHECK(srgb.blue() == 0.f);
     CHECK(srgb.alpha() == 0.75f);
 }
@@ -123,7 +123,7 @@ TEST_CASE("SRGB round-trips through LinSRGB", "[colors]")
         const auto byte  = static_cast<std::uint8_t>(value);
         const SRGB color = SRGB::from_bytes(byte, byte, byte);
         const SRGB back  = aest::colors::convert<SRGB>(aest::colors::convert<LinSRGB>(color));
-        CHECK_THAT(back.red(), WithinAbs(color.red(), 1e-5));
+        CHECK_THAT(back.red(), WithinAbs(color.red(), 1e-06));
     }
 }
 
@@ -249,14 +249,14 @@ TEST_CASE("SRGB round-trips through HSL and HSV", "[colors][conversions]")
                 CAPTURE(color.red(), color.green(), color.blue());
 
                 const SRGB viaHsl = convert<SRGB>(convert<HSL>(color));
-                CHECK_THAT(viaHsl.red(), WithinAbs(color.red(), 1e-5));
-                CHECK_THAT(viaHsl.green(), WithinAbs(color.green(), 1e-5));
-                CHECK_THAT(viaHsl.blue(), WithinAbs(color.blue(), 1e-5));
+                CHECK_THAT(viaHsl.red(), WithinAbs(color.red(), 1e-06));
+                CHECK_THAT(viaHsl.green(), WithinAbs(color.green(), 1e-06));
+                CHECK_THAT(viaHsl.blue(), WithinAbs(color.blue(), 2e-06));
 
                 const SRGB viaHsv = convert<SRGB>(convert<HSV>(color));
-                CHECK_THAT(viaHsv.red(), WithinAbs(color.red(), 1e-5));
-                CHECK_THAT(viaHsv.green(), WithinAbs(color.green(), 1e-5));
-                CHECK_THAT(viaHsv.blue(), WithinAbs(color.blue(), 1e-5));
+                CHECK_THAT(viaHsv.red(), WithinAbs(color.red(), 1e-06));
+                CHECK_THAT(viaHsv.green(), WithinAbs(color.green(), 1e-06));
+                CHECK_THAT(viaHsv.blue(), WithinAbs(color.blue(), 2e-06));
             }
 }
 
@@ -334,13 +334,13 @@ TEST_CASE("HSL and HSV convert like going through SRGB", "[colors][conversions]"
 
                 const HSV toHsv = convert<HSV>(hsl);
                 CHECK_THAT(toHsv.hue(), WithinAbs(hsv.hue(), 1e-4));
-                CHECK_THAT(toHsv.saturation(), WithinAbs(hsv.saturation(), 1e-5));
-                CHECK_THAT(toHsv.brightness(), WithinAbs(hsv.brightness(), 1e-5));
+                CHECK_THAT(toHsv.saturation(), WithinAbs(hsv.saturation(), 1e-06));
+                CHECK_THAT(toHsv.brightness(), WithinAbs(hsv.brightness(), 1e-06));
 
                 const HSL toHsl = convert<HSL>(hsv);
                 CHECK_THAT(toHsl.hue(), WithinAbs(hsl.hue(), 1e-4));
-                CHECK_THAT(toHsl.saturation(), WithinAbs(hsl.saturation(), 1e-5));
-                CHECK_THAT(toHsl.lightness(), WithinAbs(hsl.lightness(), 1e-5));
+                CHECK_THAT(toHsl.saturation(), WithinAbs(hsl.saturation(), 1e-06));
+                CHECK_THAT(toHsl.lightness(), WithinAbs(hsl.lightness(), 1e-06));
             }
 }
 
@@ -490,7 +490,7 @@ TEST_CASE("HDR LinSRGB values clip to 1 in SRGB", "[colors]")
     const SRGB srgb = aest::colors::convert<SRGB>(LinSRGB{4.f, 1.f, 0.5f, 0.5f});
     CHECK(srgb.red() == 1.f);
     CHECK(srgb.green() == 1.f);
-    CHECK_THAT(srgb.blue(), WithinAbs(0.735357, 1e-5));
+    CHECK_THAT(srgb.blue(), WithinAbs(0.735357, 1e-06));
     CHECK(srgb.alpha() == 0.5f);
 }
 
@@ -629,12 +629,12 @@ TEST_CASE("Operations convert through the conversion tree", "[colors][operations
     const HSL blue{240.f, 1.f, 0.5f};
     const SRGB blended = convert<SRGB>(mix(red, blue, 0.5f));
     const SRGB viaRgb  = mix(convert<SRGB>(red), convert<SRGB>(blue), 0.5f);
-    CHECK_THAT(blended.red(), WithinAbs(viaRgb.red(), 1e-5));
-    CHECK_THAT(blended.green(), WithinAbs(viaRgb.green(), 1e-5));
-    CHECK_THAT(blended.blue(), WithinAbs(viaRgb.blue(), 1e-5));
+    CHECK_THAT(blended.red(), WithinAbs(viaRgb.red(), 1e-06));
+    CHECK_THAT(blended.green(), WithinAbs(viaRgb.green(), 1e-06));
+    CHECK_THAT(blended.blue(), WithinAbs(viaRgb.blue(), 1e-06));
 
     // Red and green are a full channel apart in each of two channels
-    CHECK_THAT(euclidean(red, HSV{120.f, 1.f, 1.f}, in<LinSRGB>), WithinAbs(1.414214, 1e-5));
+    CHECK_THAT(euclidean(red, HSV{120.f, 1.f, 1.f}, in<LinSRGB>), WithinAbs(1.41421356, 1e-06));
 }
 
 TEST_CASE("mix blends in LinSRGB by default", "[colors][operations]")
@@ -647,9 +647,9 @@ TEST_CASE("mix blends in LinSRGB by default", "[colors][operations]")
 
     // Half the light of white, encoded: 1.055 * 0.5^(1 / 2.4) - 0.055
     const SRGB linearMidpoint = mix(black, white, 0.5f);
-    CHECK_THAT(linearMidpoint.red(), WithinAbs(0.735357, 1e-5));
-    CHECK_THAT(linearMidpoint.green(), WithinAbs(0.735357, 1e-5));
-    CHECK_THAT(linearMidpoint.blue(), WithinAbs(0.735357, 1e-5));
+    CHECK_THAT(linearMidpoint.red(), WithinAbs(0.735357, 1e-06));
+    CHECK_THAT(linearMidpoint.green(), WithinAbs(0.735357, 1e-06));
+    CHECK_THAT(linearMidpoint.blue(), WithinAbs(0.735357, 1e-06));
     CHECK(mix<LinSRGB>(black, white, 0.5f) == linearMidpoint);
 
     // in<SRGB> averages the encoded values, like CSS color-mix(in srgb, ...)
@@ -707,7 +707,7 @@ TEST_CASE("euclidean measures in SRGB by default", "[colors][distance]")
 
     // In linear light the encoded 0.5 gray is only 0.214 bright: sqrt(3) * 0.214041
     CHECK_THAT(euclidean(black, white, in<LinSRGB>), WithinAbs(1.732051, 1e-6));
-    CHECK_THAT(euclidean(black, gray, in<LinSRGB>), WithinAbs(0.370730, 1e-5));
+    CHECK_THAT(euclidean(black, gray, in<LinSRGB>), WithinAbs(0.370730, 1e-06));
 }
 
 TEST_CASE("euclidean is symmetric and ignores alpha", "[colors][distance]")
@@ -788,7 +788,7 @@ TEST_CASE("Premultiplied converts to and from straight alpha", "[colors][composi
     STATIC_REQUIRE(aest::colors::ConvertibleTo<PremulLin, HSL>);
     STATIC_REQUIRE(aest::colors::ConvertibleTo<HSV, PremulLin>);
     const SRGB back = convert<SRGB>(convert<PremulLin>(SRGB{1.f, 0.5f, 0.f, 0.25f}));
-    CHECK_THAT(back.green(), WithinAbs(0.5, 1e-5));
+    CHECK_THAT(back.green(), WithinAbs(0.5, 1e-06));
     CHECK(back.alpha() == 0.25f);
 }
 
@@ -827,7 +827,7 @@ TEST_CASE("over composites source-over in premultiplied linear light", "[colors]
 
     // The result has the background's type, and works in linear light
     const SRGB onWhite = over(SRGB{0.f, 0.f, 0.f, 0.5f}, SRGB{1.f, 1.f, 1.f});
-    CHECK_THAT(onWhite.red(), WithinAbs(0.735357, 1e-5)); // linear 0.5, encoded
+    CHECK_THAT(onWhite.red(), WithinAbs(0.735357, 1e-06)); // linear 0.5, encoded
     CHECK(onWhite.alpha() == 1.f);
     STATIC_REQUIRE(std::is_same_v<decltype(over(halfRed, SRGB{})), SRGB>);
 
@@ -854,7 +854,7 @@ TEST_CASE("luminance is the Y of XYZ", "[colors][operations]")
     CHECK_THAT(luminance(aest::colors::LinDisplayP3{1.f, 1.f, 1.f}), WithinAbs(1., 1e-6));
 
     // Other spaces are linearized first
-    CHECK_THAT(luminance(SRGB::from_hex(0x80'80'80)), WithinAbs(0.215861, 1e-5));
+    CHECK_THAT(luminance(SRGB::from_hex(0x80'80'80)), WithinAbs(0.2158605, 1e-06));
     CHECK_THAT(luminance(HSL{0.f, 0.f, 1.f}), WithinAbs(1., 1e-6));
 }
 
@@ -864,15 +864,15 @@ TEST_CASE("contrast_ratio follows WCAG 2.x", "[colors][operations]")
 
     const SRGB white = SRGB::from_hex(0xFF'FF'FF);
     const SRGB black = SRGB::from_hex(0x00'00'00);
-    CHECK_THAT(contrast_ratio(black, white), WithinAbs(21., 1e-5));
+    CHECK_THAT(contrast_ratio(black, white), WithinAbs(21., 1e-05));
     CHECK(contrast_ratio(white, black) == contrast_ratio(black, white));
     CHECK(contrast_ratio(white, white) == 1.f);
 
     // #777777 on white just fails the 4.5:1 AA threshold
-    CHECK_THAT(contrast_ratio(SRGB::from_hex(0x77'77'77), white), WithinAbs(4.478089, 1e-4));
+    CHECK_THAT(contrast_ratio(SRGB::from_hex(0x77'77'77), white), WithinAbs(4.478089, 1e-06));
 
     // Mixed types, and HDR colors clip to white as a display shows them
-    CHECK_THAT(contrast_ratio(HSL{0.f, 0.f, 0.f}, LinSRGB{4.f, 4.f, 4.f}), WithinAbs(21., 1e-5));
+    CHECK_THAT(contrast_ratio(HSL{0.f, 0.f, 0.f}, LinSRGB{4.f, 4.f, 4.f}), WithinAbs(21., 1e-05));
 }
 
 namespace
@@ -931,9 +931,9 @@ TEST_CASE("XYZ round-trips through LinSRGB, HDR values included", "[colors][xyz]
     for (const LinSRGB color : {LinSRGB{0.25f, 0.5f, 0.75f, 0.5f}, LinSRGB{4.f, 0.f, 1.5f}})
     {
         const LinSRGB back = convert<LinSRGB>(convert<XYZ>(color));
-        CHECK_THAT(back.red(), WithinAbs(color.red(), 1e-5));
-        CHECK_THAT(back.green(), WithinAbs(color.green(), 1e-5));
-        CHECK_THAT(back.blue(), WithinAbs(color.blue(), 1e-5));
+        CHECK_THAT(back.red(), WithinAbs(color.red(), 1e-06));
+        CHECK_THAT(back.green(), WithinAbs(color.green(), 1e-06));
+        CHECK_THAT(back.blue(), WithinAbs(color.blue(), 1e-06));
         CHECK(back.alpha() == color.alpha());
     }
 }
@@ -943,7 +943,7 @@ TEST_CASE("XYZ outside the sRGB gamut clips at 0 in LinSRGB", "[colors][xyz]")
     // Pure Y has no sRGB mix: red and blue would be negative
     const LinSRGB clipped = aest::colors::convert<LinSRGB>(XYZ{0.f, 1.f, 0.f});
     CHECK(clipped.red() == 0.f);
-    CHECK_THAT(clipped.green(), WithinAbs(1.875968, 1e-5));
+    CHECK_THAT(clipped.green(), WithinAbs(1.8759675, 1e-06));
     CHECK(clipped.blue() == 0.f);
 }
 
@@ -1028,7 +1028,7 @@ TEST_CASE("Gamut matrices are derived from the chromaticities", "[colors][gamut]
 
     // The usual ACEScg to linear sRGB matrix, first row
     const LinSRGB red = convert<LinSRGB>(ACEScg{1.f, 0.f, 0.f});
-    CHECK_THAT(red.red(), WithinAbs(1.705051, 1e-5));
+    CHECK_THAT(red.red(), WithinAbs(1.705051, 1e-06));
     STATIC_REQUIRE(convert<XYZ>(LinDisplayP3{0.f, 0.f, 0.f}) == XYZ{});
 }
 
@@ -1038,9 +1038,9 @@ TEST_CASE("Wide gamuts round-trip, encoded and linear", "[colors][gamut]")
 
     const DisplayP3 p3{0.25f, 0.5f, 0.75f, 0.5f};
     const DisplayP3 p3Back = convert<DisplayP3>(convert<XYZ>(p3));
-    CHECK_THAT(p3Back.red(), WithinAbs(p3.red(), 1e-5));
-    CHECK_THAT(p3Back.green(), WithinAbs(p3.green(), 1e-5));
-    CHECK_THAT(p3Back.blue(), WithinAbs(p3.blue(), 1e-5));
+    CHECK_THAT(p3Back.red(), WithinAbs(p3.red(), 1e-06));
+    CHECK_THAT(p3Back.green(), WithinAbs(p3.green(), 1e-06));
+    CHECK_THAT(p3Back.blue(), WithinAbs(p3.blue(), 1e-06));
     CHECK(p3Back.alpha() == 0.5f);
 
     // Every sRGB color fits in the wider gamuts, so it comes back unchanged
@@ -1049,14 +1049,14 @@ TEST_CASE("Wide gamuts round-trip, encoded and linear", "[colors][gamut]")
          {convert<SRGB>(convert<DisplayP3>(srgb)), convert<SRGB>(convert<LinRec2020>(srgb)),
           convert<SRGB>(convert<ACEScg>(srgb))})
     {
-        CHECK_THAT(back.red(), WithinAbs(srgb.red(), 1e-5));
-        CHECK_THAT(back.green(), WithinAbs(srgb.green(), 1e-5));
-        CHECK_THAT(back.blue(), WithinAbs(srgb.blue(), 1e-5));
+        CHECK_THAT(back.red(), WithinAbs(srgb.red(), 1e-06));
+        CHECK_THAT(back.green(), WithinAbs(srgb.green(), 1e-06));
+        CHECK_THAT(back.blue(), WithinAbs(srgb.blue(), 1e-06));
     }
 
     // Converting within one gamut skips XYZ
     const LinDisplayP3 linear = convert<LinDisplayP3>(p3);
-    CHECK_THAT(linear.red(), WithinAbs(0.050876, 1e-5));
+    CHECK_THAT(linear.red(), WithinAbs(0.050876, 1e-06));
 }
 
 TEST_CASE("Colors outside the sRGB gamut clip at 0", "[colors][gamut]")
@@ -1065,7 +1065,7 @@ TEST_CASE("Colors outside the sRGB gamut clip at 0", "[colors][gamut]")
 
     // P3 red needs negative green and blue in sRGB, and more than 1 red
     const LinSRGB linear = convert<LinSRGB>(LinDisplayP3{1.f, 0.f, 0.f});
-    CHECK_THAT(linear.red(), WithinAbs(1.224940, 1e-5));
+    CHECK_THAT(linear.red(), WithinAbs(1.224940, 1e-06));
     CHECK(linear.green() == 0.f);
     CHECK(linear.blue() == 0.f);
 
@@ -1136,11 +1136,11 @@ TEST_CASE("Gamuts and transfer functions defined outside the library join the tr
     check_xyz(convert<XYZ>(LinAdobeRGB{1.f, 0.f, 0.f}), 0.5767, 0.2973, 0.0270, 1e-4);
 
     const AdobeRGB gray = convert<AdobeRGB>(LinAdobeRGB{0.5f, 0.5f, 0.5f});
-    CHECK_THAT(gray.red(), WithinAbs(0.729740, 1e-5)); // 0.5^(1 / 2.2)
+    CHECK_THAT(gray.red(), WithinAbs(0.729740, 1e-06)); // 0.5^(1 / 2.2)
 
     const SRGB srgb = SRGB::from_hex(0x33'99'CC);
     const SRGB back = convert<SRGB>(convert<AdobeRGB>(srgb));
-    CHECK_THAT(back.green(), WithinAbs(srgb.green(), 1e-5));
+    CHECK_THAT(back.green(), WithinAbs(srgb.green(), 1e-06));
 }
 
 namespace
@@ -1186,8 +1186,8 @@ TEST_CASE("HSL over DisplayP3 converts through DisplayP3", "[colors][cylindrical
     // P3 red is outside sRGB: HSL over P3 keeps it, HSL over sRGB clips it
     const HSLP3 p3Red{0.f, 1.f, 0.5f};
     const DisplayP3 back = convert<DisplayP3>(convert<XYZ>(p3Red));
-    CHECK_THAT(back.red(), WithinAbs(1., 1e-5));
-    CHECK_THAT(back.green(), WithinAbs(0., 1e-5));
+    CHECK_THAT(back.red(), WithinAbs(1., 1e-06));
+    CHECK_THAT(back.green(), WithinAbs(0., 1e-06));
     const DisplayP3 viaSrgb = convert<DisplayP3>(convert<HSL>(p3Red));
     CHECK(viaSrgb.green() > 0.1f);
 
@@ -1196,8 +1196,8 @@ TEST_CASE("HSL over DisplayP3 converts through DisplayP3", "[colors][cylindrical
     const HSL fromP3 = convert<HSL>(HSLP3{210.f, 0.5f, 0.5f, 0.25f});
     CHECK(fromP3.alpha() == 0.25f);
     CHECK_THAT(fromP3.hue(), WithinAbs(204.460031, 1e-3));
-    CHECK_THAT(fromP3.saturation(), WithinAbs(0.722798, 1e-4));
-    CHECK_THAT(fromP3.lightness(), WithinAbs(0.447602, 1e-4));
+    CHECK_THAT(fromP3.saturation(), WithinAbs(0.72279826, 1e-06));
+    CHECK_THAT(fromP3.lightness(), WithinAbs(0.44760169, 1e-06));
 }
 
 TEST_CASE("lighten works in the HSL of any RGB space", "[colors][cylindrical]")
@@ -1224,15 +1224,15 @@ TEST_CASE("mix follows the gamut of its input by default", "[colors][operations]
     const DisplayP3 red{1.f, 0.f, 0.f};
     const DisplayP3 green{0.f, 1.f, 0.f};
     const DisplayP3 blend = mix(red, green, 0.5f);
-    CHECK_THAT(blend.red(), WithinAbs(0.735357, 1e-5)); // linear 0.5, encoded
-    CHECK_THAT(blend.green(), WithinAbs(0.735357, 1e-5));
+    CHECK_THAT(blend.red(), WithinAbs(0.735357, 1e-06)); // linear 0.5, encoded
+    CHECK_THAT(blend.green(), WithinAbs(0.735357, 1e-06));
     CHECK(blend.blue() == 0.f);
     CHECK(blend == mix<LinDisplayP3>(red, green, 0.5f));
     CHECK(mix(red, red, 0.5f) == red);
 
     // HSL over P3 follows P3 too, and SRGB still blends in LinSRGB
     const HSLP3 hslRed = convert<HSLP3>(red);
-    CHECK_THAT(convert<DisplayP3>(mix(hslRed, hslRed, 0.5f)).green(), WithinAbs(0., 1e-5));
+    CHECK_THAT(convert<DisplayP3>(mix(hslRed, hslRed, 0.5f)).green(), WithinAbs(0., 1e-06));
     CHECK(mix(SRGB{1.f, 0.f, 0.f}, SRGB{0.f, 0.f, 1.f}, 0.5f)
           == mix<LinSRGB>(SRGB{1.f, 0.f, 0.f}, SRGB{0.f, 0.f, 1.f}, 0.5f));
 
@@ -1287,9 +1287,9 @@ TEST_CASE("tf::PQ follows SMPTE ST 2084 with linear 1.0 at 203 cd/m2", "[colors]
     // Absolute luminances become linear values through the reference white
     CHECK(PQ::encode(0.f) < 1e-6f);
     CHECK_THAT(PQ::encode(10000.f / REFERENCE_WHITE_NITS), WithinAbs(1., 1e-6));
-    CHECK_THAT(PQ::encode(100.f / REFERENCE_WHITE_NITS), WithinAbs(0.508078, 1e-5));
-    CHECK_THAT(PQ::encode(1.f), WithinAbs(0.580689, 1e-5)); // BT.2408: reference white at 58%
-    CHECK_THAT(PQ::encode(1000.f / REFERENCE_WHITE_NITS), WithinAbs(0.751827, 1e-5));
+    CHECK_THAT(PQ::encode(100.f / REFERENCE_WHITE_NITS), WithinAbs(0.50807842, 1e-06));
+    CHECK_THAT(PQ::encode(1.f), WithinAbs(0.580689, 1e-06)); // BT.2408: reference white at 58%
+    CHECK_THAT(PQ::encode(1000.f / REFERENCE_WHITE_NITS), WithinAbs(0.751827, 1e-06));
 
     for (const float linear : {0.001f, 0.01f, 1.f, 4.f, 20.f})
         CHECK_THAT(PQ::decode(PQ::encode(linear)), WithinRel(linear, 1e-6f));
@@ -1305,16 +1305,16 @@ TEST_CASE("Rec2100PQ puts linear 1.0 at 203 cd/m2", "[colors][transfer]")
     STATIC_REQUIRE_FALSE(aest::colors::HDRTransfer<aest::colors::tf::SRGB>);
 
     const Rec2100PQ white = convert<Rec2100PQ>(LinRec2020{1.f, 1.f, 1.f});
-    CHECK_THAT(white.red(), WithinAbs(0.580689, 1e-5));
+    CHECK_THAT(white.red(), WithinAbs(0.580689, 1e-06));
 
     // sRGB white is the reference white too, so it lands on the same signal
     const Rec2100PQ srgbWhite = convert<Rec2100PQ>(SRGB::from_hex(0xFF'FF'FF));
-    CHECK_THAT(srgbWhite.green(), WithinAbs(0.580689, 1e-4));
+    CHECK_THAT(srgbWhite.green(), WithinAbs(0.580689, 1e-06));
 
     // HDR values round-trip: four times reference white is 812 cd/m2
     const LinRec2020 bright{4.f, 2.f, 0.5f};
     const Rec2100PQ encoded = convert<Rec2100PQ>(bright);
-    CHECK_THAT(encoded.red(), WithinAbs(0.729145, 1e-5));
+    CHECK_THAT(encoded.red(), WithinAbs(0.729145, 1e-06));
     const LinRec2020 back = convert<LinRec2020>(encoded);
     CHECK_THAT(back.red(), WithinRel(4.f, 1e-6f));
     CHECK_THAT(back.green(), WithinRel(2.f, 1e-6f));
@@ -1329,11 +1329,11 @@ TEST_CASE("Rec2100HLG puts linear 1.0 at 75%", "[colors][transfer]")
     using aest::colors::convert;
 
     const Rec2100HLG white = convert<Rec2100HLG>(LinRec2020{1.f, 1.f, 1.f});
-    CHECK_THAT(white.red(), WithinAbs(0.75, 1e-5));
+    CHECK_THAT(white.red(), WithinAbs(0.75, 1e-06));
 
     // The two segments of the OETF meet at scene light 1/12, signal 0.5
-    CHECK_THAT(aest::colors::tf::HLG::encode(1.f / 12 / 0.264962560f), WithinAbs(0.5, 1e-5));
-    CHECK_THAT(aest::colors::tf::HLG::encode(2.f), WithinAbs(0.882541, 1e-5));
+    CHECK_THAT(aest::colors::tf::HLG::encode(1.f / 12 / 0.264962560f), WithinAbs(0.5, 1e-06));
+    CHECK_THAT(aest::colors::tf::HLG::encode(2.f), WithinAbs(0.882541, 1e-06));
 
     for (const float linear : {0.f, 0.1f, 1.f, 3.f})
         CHECK_THAT(aest::colors::tf::HLG::decode(aest::colors::tf::HLG::encode(linear)),
@@ -1352,7 +1352,7 @@ TEST_CASE("HDR signals join the tree but not HSL", "[colors][transfer]")
 
     // PQ to HLG through their shared linear space, and mix in linear light
     const Rec2100HLG hlg = convert<Rec2100HLG>(convert<Rec2100PQ>(LinRec2020{1.f, 1.f, 1.f}));
-    CHECK_THAT(hlg.blue(), WithinAbs(0.75, 1e-4));
+    CHECK_THAT(hlg.blue(), WithinAbs(0.75, 1e-06));
     const Rec2100PQ pq{0.58f, 0.58f, 0.58f};
-    CHECK_THAT(aest::colors::mix(pq, pq, 0.5f).red(), WithinAbs(0.58, 1e-5));
+    CHECK_THAT(aest::colors::mix(pq, pq, 0.5f).red(), WithinAbs(0.58, 1e-06));
 }
