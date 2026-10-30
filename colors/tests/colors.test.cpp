@@ -745,3 +745,90 @@ TEST_CASE("Named CSS colors live in the css namespace", "[colors]")
     STATIC_REQUIRE(css::coral == SRGB::from_hex(0xFF'7F'50));
     STATIC_REQUIRE(css::midnightBlue == SRGB::from_hex(0x19'19'70));
 }
+
+namespace
+{
+using PremulLin = aest::colors::Premultiplied<LinSRGB>;
+
+template <typename T>
+concept Subtractable = requires(T color) { color - color; };
+} // namespace
+
+TEST_CASE("Premultiplied names its space and clamps like it", "[colors][compositing]")
+{
+    STATIC_REQUIRE(PremulLin::TYPE == "Premultiplied<LinSRGB>");
+    STATIC_REQUIRE(aest::colors::ColorType<PremulLin>);
+    STATIC_REQUIRE(PremulLin{} == PremulLin{0.f, 0.f, 0.f, 1.f});
+    STATIC_REQUIRE(PremulLin{-1.f, 2.f, 0.5f, 3.f} == PremulLin{0.f, 2.f, 0.5f, 1.f});
+    CHECK(std::format("{:.2f}", PremulLin{0.25f, 0.5f, 0.f, 0.5f})
+          == "Premultiplied<LinSRGB>(0.25, 0.50, 0.00, 0.50)");
+
+    STATIC_REQUIRE(aest::colors::LinearSpace<LinSRGB>);
+    STATIC_REQUIRE_FALSE(aest::colors::LinearSpace<SRGB>);
+    STATIC_REQUIRE_FALSE(aest::colors::LinearSpace<HSL>);
+}
+
+TEST_CASE("Premultiplied converts to and from straight alpha", "[colors][compositing]")
+{
+    using aest::colors::convert;
+
+    constexpr LinSRGB straight{0.5f, 1.f, 0.25f, 0.5f};
+    constexpr PremulLin premultiplied{0.25f, 0.5f, 0.125f, 0.5f};
+    STATIC_REQUIRE(convert<PremulLin>(straight) == premultiplied);
+    STATIC_REQUIRE(convert<LinSRGB>(premultiplied) == straight);
+
+    // Fully transparent colors lose their light, so they come back as transparent black
+    STATIC_REQUIRE(convert<LinSRGB>(convert<PremulLin>(LinSRGB{1.f, 1.f, 1.f, 0.f}))
+                   == LinSRGB{0.f, 0.f, 0.f, 0.f});
+
+    // Other spaces convert through the tree
+    STATIC_REQUIRE(aest::colors::ConvertibleTo<PremulLin, HSL>);
+    STATIC_REQUIRE(aest::colors::ConvertibleTo<HSV, PremulLin>);
+    const SRGB back = convert<SRGB>(convert<PremulLin>(SRGB{1.f, 0.5f, 0.f, 0.25f}));
+    CHECK_THAT(back.green(), WithinAbs(0.5, 1e-5));
+    CHECK(back.alpha() == 0.25f);
+}
+
+TEST_CASE("Premultiplied arithmetic includes alpha", "[colors][compositing]")
+{
+    constexpr PremulLin a{0.25f, 0.5f, 0.f, 0.5f};
+    constexpr PremulLin b{0.5f, 0.25f, 0.25f, 0.25f};
+    STATIC_REQUIRE(a + b == PremulLin{0.75f, 0.75f, 0.25f, 0.75f});
+    STATIC_REQUIRE(a * 0.5f == PremulLin{0.125f, 0.25f, 0.f, 0.25f});
+    STATIC_REQUIRE(0.5f * a == a * 0.5f);
+    STATIC_REQUIRE_FALSE(Subtractable<PremulLin>);
+
+    PremulLin c = a;
+    c += b;
+    CHECK(c == a + b);
+    c *= 2.f;
+    CHECK(c == PremulLin{1.5f, 1.5f, 0.5f, 1.f});
+}
+
+TEST_CASE("over composites source-over in premultiplied linear light", "[colors][compositing]")
+{
+    using aest::colors::over;
+
+    constexpr LinSRGB blue{0.f, 0.f, 1.f};
+    constexpr LinSRGB halfRed{1.f, 0.f, 0.f, 0.5f};
+
+    STATIC_REQUIRE(over(halfRed, blue) == LinSRGB{0.5f, 0.f, 0.5f, 1.f});
+    STATIC_REQUIRE(over(LinSRGB{0.f, 1.f, 0.f}, blue) == LinSRGB{0.f, 1.f, 0.f});
+    STATIC_REQUIRE(over(LinSRGB{0.f, 1.f, 0.f, 0.f}, blue) == blue);
+
+    // Alpha combines as a + b (1 - a); the light is weighted by coverage
+    constexpr LinSRGB halfBlue{0.f, 0.f, 1.f, 0.5f};
+    constexpr LinSRGB both = over(halfRed, halfBlue);
+    STATIC_REQUIRE(both.alpha() == 0.75f);
+    STATIC_REQUIRE(both == LinSRGB{0.5f / 0.75f, 0.f, 0.25f / 0.75f, 0.75f});
+
+    // The result has the background's type, and works in linear light
+    const SRGB onWhite = over(SRGB{0.f, 0.f, 0.f, 0.5f}, SRGB{1.f, 1.f, 1.f});
+    CHECK_THAT(onWhite.red(), WithinAbs(0.735357, 1e-5)); // linear 0.5, encoded
+    CHECK(onWhite.alpha() == 1.f);
+    STATIC_REQUIRE(std::is_same_v<decltype(over(halfRed, SRGB{})), SRGB>);
+
+    // A premultiplied background accumulates layers without leaving premultiplied form
+    constexpr PremulLin frame = over(halfRed, PremulLin{0.f, 0.f, 1.f});
+    STATIC_REQUIRE(frame == PremulLin{0.5f, 0.f, 0.5f, 1.f});
+}

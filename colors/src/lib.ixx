@@ -7,6 +7,7 @@
 export module aest.colors;
 
 export import :color;
+export import :compositing;
 export import :converter;
 export import :distance;
 export import :named_colors;

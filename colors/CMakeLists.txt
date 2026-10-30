@@ -1,6 +1,7 @@
 aest_add_library(colors
     MODULES src/lib.ixx
         src/Color.cppm
+        src/Compositing.cppm
         src/Converter.cppm
         src/Distance.cppm
         src/NamedColors.cppm

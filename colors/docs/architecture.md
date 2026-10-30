@@ -22,39 +22,48 @@ one is expected, and the conversion between them is always explicit.
   four-channel constructor. A type outside the library can satisfy it.
 - Mixins add behavior only where it is meaningful.
   aest::colors::ColorArithmetic gives `+`, `-` and `*` between colors and
-  scaling by a scalar, and only
-  LinSRGB inherits it: adding gamma-encoded values or hues has no
-  physical meaning.
+  scaling by a scalar, and only LinSRGB inherits it: adding gamma-encoded
+  values or hues has no physical meaning. The spaces that inherit it are the
+  aest::colors::LinearSpace ones.
+- aest::colors::Premultiplied wraps a linear space with premultiplied alpha.
+  Its own operators, `+` and scaling by a scalar, apply to all four
+  channels, which is how premultiplied colors add up and fade.
 
 ### Families of color spaces
 
-| Family  | Spaces    | Channels                                                    |
-|---------|-----------|-------------------------------------------------------------|
-| Encoded | SRGB      | sRGB with its transfer function: hex codes, bytes, CSS      |
-| Linear  | LinSRGB   | Proportional to light: blending and lighting math belong here |
-| Derived | HSL, HSV  | Cylindrical views of sRGB, for picking and adjusting colors  |
+| Family  | Spaces                            | Channels                                                              |
+|---------|-----------------------------------|-----------------------------------------------------------------------|
+| Encoded | SRGB                              | sRGB with its transfer function: hex codes, bytes, CSS                |
+| Linear  | LinSRGB, `Premultiplied<LinSRGB>` | Proportional to light: blending, lighting and compositing belong here |
+| Derived | HSL, HSV                          | Cylindrical views of sRGB, for picking and adjusting colors           |
 
 ### Ranges
 
 Each constructor brings its channels into the range of its space, so a
 value of a color type is always valid for that space.
 
-| Space     | Channels                                                     | Alpha |
-|-----------|--------------------------------------------------------------|-------|
-| SRGB      | Clamped to [0, 1]                                            | [0, 1] |
-| LinSRGB   | Clamped at 0, unbounded above: values over 1 are HDR light   | [0, 1] |
-| HSL, HSV  | Hue wrapped to [0, 360); saturation, lightness/value clamped to [0, 1] | [0, 1] |
+| Space              | Channels                                                               | Alpha  |
+|--------------------|------------------------------------------------------------------------|--------|
+| SRGB               | Clamped to [0, 1]                                                      | [0, 1] |
+| LinSRGB            | Clamped at 0, unbounded above: values over 1 are HDR light             | [0, 1] |
+| `Premultiplied<S>` | Clamped like S                                                         | [0, 1] |
+| HSL, HSV           | Hue wrapped to [0, 360); saturation, lightness/value clamped to [0, 1] | [0, 1] |
 
 Channels must be finite: NaN and infinities are a precondition violation,
 not a value the constructors repair.
 
 ### Alpha
 
-Alpha is straight, not premultiplied: the color channels do not depend on
-it. Conversions keep it unchanged. Operations that move a color, such as
+Alpha is straight in every space but aest::colors::Premultiplied: the color
+channels do not depend on it. Conversions keep it unchanged; between a
+linear space and its premultiplied form they multiply or divide the
+channels by it, and a premultiplied color with alpha 0 comes back as
+transparent black, since its light is lost. Operations that move a color, such as
 lighten(), keep it too, and so do the scalar operators, which scale only
 the light; those that combine colors, mix() and the LinSRGB operators
-between two colors, combine it like the other channels.
+between two colors, combine it like the other channels. aest::colors::over()
+composites in premultiplied linear light, where coverage and light add up
+correctly, and returns straight alpha in the background's type.
 
 ## Conversion tree
 
@@ -63,10 +72,11 @@ form a tree, declared by aest::colors::ParentSpace, and each space provides
 aest::colors::Converter specializations to and from its parent:
 
 ```
-LinSRGB                root
-└── SRGB               sRGB transfer function
-    ├── HSL            hue, saturation, lightness
-    └── HSV            hue, saturation, value
+LinSRGB                    root
+├── Premultiplied<LinSRGB> channels times alpha
+└── SRGB                   sRGB transfer function
+    ├── HSL                hue, saturation, lightness
+    └── HSV                hue, saturation, value
 ```
 
 A conversion takes one of two routes:
@@ -123,6 +133,7 @@ and MSVC.
 | Construction, hex and byte packing, opacity(), `==`         | SRGB ↔ LinSRGB (`std::pow`)    |
 | SRGB ↔ HSL ↔ HSV conversions                                | euclidean() (`std::sqrt`)      |
 | lighten(), darken() and mix() when no step needs `<cmath>`  | Anything through LinSRGB       |
+| Premultiplied conversions, over() of linear colors          |                                |
 
 A function marked `constexpr` whose path reaches a run-time step simply
 cannot be used in a constant expression for those arguments: mix() of two

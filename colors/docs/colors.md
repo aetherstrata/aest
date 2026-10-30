@@ -9,7 +9,10 @@
   aest::colors::HSV — colors with float channels and alpha, built on
   aest::colors::ColorBase and checked by the aest::colors::ColorType concept.
   SRGB holds gamma-encoded sRGB (hex codes, bytes, CSS); LinSRGB holds the
-  same primaries without the gamma, so its channels are proportional to light.
+  same primaries without the gamma, so its channels are proportional to light
+  and can exceed 1 for HDR values.
+- aest::colors::Premultiplied — a linear color with premultiplied alpha, such
+  as `Premultiplied<LinSRGB>`, for compositing.
 - aest::colors::SRGB::from_hex(), aest::colors::SRGB::from_rgba(),
   aest::colors::SRGB::from_argb(), aest::colors::SRGB::from_bytes() — build an
   SRGB color from packed or 8-bit values; aest::colors::SRGB::to_rgba(),
@@ -23,12 +26,12 @@
 
 ## Conversions
 
-aest::colors::convert() converts between any two of SRGB, LinSRGB, HSL and
-HSV, keeping alpha. Pairs with an aest::colors::Converter specialization
-convert directly; the others go through the conversion tree declared by
-aest::colors::ParentSpace (see @ref colors_architecture). Converting a color
-to its own type returns it unchanged. aest::colors::ConvertibleTo checks that
-a conversion exists.
+aest::colors::convert() converts between any two of SRGB, LinSRGB, HSL,
+HSV and `Premultiplied<LinSRGB>`, keeping alpha. Pairs with an
+aest::colors::Converter specialization convert directly; the others go
+through the conversion tree declared by aest::colors::ParentSpace (see
+@ref colors_architecture). Converting a color to its own type returns it
+unchanged. aest::colors::ConvertibleTo checks that a conversion exists.
 
 ## Arithmetic
 
@@ -40,6 +43,19 @@ alpha to [0, 1]. The scalar operators `color * s`, `s * color`,
 `color / s`, `*=` and `/=` scale the three color channels and keep alpha, as
 exposure or a light's intensity would.
 
+Premultiplied colors have `+` and scaling by a scalar too, but both apply to
+all four channels: that is how premultiplied light and coverage add up and
+fade.
+
+## Compositing
+
+aest::colors::over() composites a color over another with Porter-Duff
+source-over: it converts both to premultiplied linear light, computes
+`foreground + background * (1 - foreground alpha)`, and returns the result in
+the background's type. Its working space, an aest::colors::LinearSpace, is
+the first template argument, LinSRGB when omitted, as for the operations
+below.
+
 ## Operations
 
 Operations are free functions. Each works in a default color space, fixed so
@@ -49,14 +65,16 @@ aest::colors::in tag, as in `lighten(color, 0.2f, in<HSL>)`, which is the
 same call. The result has the input's type. A space supports an operation by
 specializing the operation's trait.
 
-| Operation | Does | Default space | Trait |
-|-----------|------|---------------|-------|
-| aest::colors::lighten(), aest::colors::darken() | Move lightness a fraction of the way toward white or black, keeping hue, saturation and alpha | HSL | aest::colors::Lightness |
-| aest::colors::mix() | Blend two colors, alpha included: 0 gives the first, 1 the second | LinSRGB | aest::colors::Interpolation |
-| aest::colors::euclidean() | Distance between two colors, ignoring alpha | SRGB | aest::colors::Euclidean |
+| Operation                                       | Does                                                                                          | Default space | Trait                       |
+|-------------------------------------------------|-----------------------------------------------------------------------------------------------|---------------|-----------------------------|
+| aest::colors::lighten(), aest::colors::darken() | Move lightness a fraction of the way toward white or black, keeping hue, saturation and alpha | HSL           | aest::colors::Lightness     |
+| aest::colors::mix()                             | Blend two colors, alpha included: 0 gives the first, 1 the second                             | LinSRGB       | aest::colors::Interpolation |
+| aest::colors::euclidean()                       | Distance between two colors, ignoring alpha                                                   | SRGB          | aest::colors::Euclidean     |
 
 ## Design
 
 - @subpage colors_architecture — the type model, the conversion tree, how
   operations pick a working space, and what runs at compile time.
 - @subpage colors_extending — adding a color space or an operation.
+- @subpage colors_rendering — using the library in a rendering pipeline:
+  linear light, HDR values and compositing.
