@@ -178,6 +178,23 @@ struct Interpolation<BasicRGB<Gamut, Transfer>>
     }
 };
 
+/** @brief Interpolation of XYZ, channel by channel: XYZ is linear in light. */
+template <>
+struct Interpolation<XYZ>
+{
+    /**
+     * @brief Interpolates the tristimulus values and alpha of two colors.
+     * @param[in] from The color at @p amount 0
+     * @param[in] to The color at @p amount 1
+     * @param[in] amount Position between the two colors, in the 0-1 range
+     * @return The interpolated color.
+     */
+    static constexpr XYZ lerp(const XYZ& from, const XYZ& to, const float amount)
+    {
+        return lerp_channels(from, to, amount);
+    }
+};
+
 /**
  * @brief A color space whose colors can be interpolated through
  * Interpolation.
@@ -191,31 +208,65 @@ concept InterpolationSpace = ColorType<T> && requires(const T& color, const floa
 /**
  * @brief Blends two colors.
  *
- * Both colors are converted to @p Space, interpolated there channel by
- * channel, alpha included, and converted back. The default, linear sRGB,
- * blends the light physically; `mix<SRGB>(from, to, amount)` blends the
- * encoded values instead, like CSS `color-mix(in srgb, …)`, which gives
- * darker midpoints.
+ * Both colors are converted to the working space, interpolated there
+ * channel by channel, alpha included, and converted back. By default it is
+ * the LinearSpaceOf @p Color, linear light in the color's own gamut: LinSRGB
+ * for SRGB and HSL, LinDisplayP3 for DisplayP3. That blends the light
+ * physically without clipping wide-gamut colors to sRGB, and linear
+ * blending gives the same result in every linear gamut otherwise.
+ * `mix<SRGB>(from, to, amount)` blends the encoded values instead, like CSS
+ * `color-mix(in srgb, …)`, which gives darker midpoints.
  *
- * @tparam Space The color space the colors are blended in
+ * Both colors have the same type. To blend colors of two spaces, convert
+ * one into the other's first, into the wider gamut so nothing clips:
+ * `mix(convert<DisplayP3>(srgbColor), p3Color, amount)`.
+ *
+ * @tparam Space The color space the colors are blended in; `void`, the
+ *         default, follows @p Color
  * @tparam Color The color type of the inputs and the result
  * @param[in] from The color at @p amount 0
  * @param[in] to The color at @p amount 1
  * @param[in] amount Fraction of the way from @p from to @p to, clamped to the
  *            0-1 range: 0 gives @p from, 1 gives @p to
- * @param[in] space The working space, e.g. `in<SRGB>`; LinSRGB when omitted
+ * @param[in] space The working space, e.g. `in<SRGB>`; the LinearSpaceOf
+ *            @p Color when omitted
  * @return The blended color.
  */
-template <InterpolationSpace Space = LinSRGB, ColorType Color>
-    requires ConvertibleTo<Space, Color> && ConvertibleTo<Color, Space>
+template <typename Space = void, ColorType Color>
+    requires InterpolationSpace<WorkingSpace<Space, Color>>
+          && ConvertibleTo<WorkingSpace<Space, Color>, Color>
+          && ConvertibleTo<Color, WorkingSpace<Space, Color>>
 constexpr Color mix(const Color& from,
                     const Color& to,
                     const float amount,
                     [[maybe_unused]] In<Space> space = {})
 {
+    using Working = WorkingSpace<Space, Color>;
     return convert<Color>(
-        Interpolation<Space>::lerp(convert<Space>(from), convert<Space>(to), clamp(amount)));
+        Interpolation<Working>::lerp(convert<Working>(from), convert<Working>(to), clamp(amount)));
 }
+
+/**
+ * @brief Rejects blending colors of two different types.
+ *
+ * No result type fits every pair: gamuts are not nested, so neither is
+ * always the wider one, and taking the type of @p from would make mix()
+ * depend on the order of its arguments. Convert one color into the other's
+ * type first, into the wider gamut so nothing clips:
+ * `mix(convert<DisplayP3>(srgbColor), p3Color, amount)`.
+ *
+ * @tparam Space The color space the colors would be blended in
+ * @tparam From Color type of @p from
+ * @tparam To Color type of @p to, other than @p From
+ * @param[in] from The color at @p amount 0
+ * @param[in] to The color at @p amount 1
+ * @param[in] amount Fraction of the way from @p from to @p to
+ * @param[in] space The working space
+ * @return Nothing: the function is deleted.
+ */
+template <typename Space = void, ColorType From, ColorType To>
+    requires(!std::same_as<From, To>)
+From mix(const From& from, const To& to, float amount, In<Space> space = {}) = delete;
 
 /**
  * @brief Relative luminance of a color: the light it emits, weighted by how

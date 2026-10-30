@@ -202,30 +202,46 @@ struct Converter<Space, Premultiplied<Space>>
 };
 
 /**
+ * @brief A premultiplied color follows its straight-alpha space.
+ * @tparam Space The linear color space of the channels
+ */
+template <LinearSpace Space>
+struct LinearSpaceOf<Premultiplied<Space>>
+{
+    /** @brief The linear space. */
+    using type = Space;
+};
+
+/**
  * @brief Composites a color over another: Porter-Duff source-over.
  *
- * Both colors are converted to premultiplied @p Space, where the result is
- * `foreground + background * (1 - foreground alpha)`, then converted to the
- * type of @p background. Alpha combines the same way, so a half-transparent
- * color over another gives alpha 0.75.
+ * Both colors are converted to the premultiplied working space, where the
+ * result is `foreground + background * (1 - foreground alpha)`, then
+ * converted to the type of @p background. Alpha combines the same way, so a
+ * half-transparent color over another gives alpha 0.75. By default the
+ * working space is the LinearSpaceOf @p Background, linear light in the
+ * background's gamut, so P3 colors composite without clipping to sRGB.
  *
- * @tparam Space The linear color space the colors are composited in
+ * @tparam Space The linear color space the colors are composited in; `void`,
+ *         the default, follows @p Background
  * @tparam Foreground Color type of @p foreground
  * @tparam Background Color type of @p background and of the result
  * @param[in] foreground The color on top
  * @param[in] background The color underneath
- * @param[in] space The working space, e.g. `in<LinSRGB>`; LinSRGB when omitted
+ * @param[in] space The working space, e.g. `in<LinSRGB>`; the LinearSpaceOf
+ *            @p Background when omitted
  * @return The composited color, in the type of @p background.
  */
-template <LinearSpace Space = LinSRGB, ColorType Foreground, ColorType Background>
-    requires ConvertibleTo<Premultiplied<Space>, Foreground>
-          && ConvertibleTo<Premultiplied<Space>, Background>
-          && ConvertibleTo<Background, Premultiplied<Space>>
+template <typename Space = void, ColorType Foreground, ColorType Background>
+    requires LinearSpace<WorkingSpace<Space, Background>>
+          && ConvertibleTo<Premultiplied<WorkingSpace<Space, Background>>, Foreground>
+          && ConvertibleTo<Premultiplied<WorkingSpace<Space, Background>>, Background>
+          && ConvertibleTo<Background, Premultiplied<WorkingSpace<Space, Background>>>
 constexpr Background over(const Foreground& foreground,
                           const Background& background,
                           [[maybe_unused]] In<Space> space = {})
 {
-    using Working = Premultiplied<Space>;
+    using Working = Premultiplied<WorkingSpace<Space, Background>>;
 
     const Working front = convert<Working>(foreground);
     return convert<Background>(front + convert<Working>(background) * (1 - front.alpha()));

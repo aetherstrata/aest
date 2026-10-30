@@ -1207,3 +1207,67 @@ TEST_CASE("lighten works in the HSL of any RGB space", "[colors][cylindrical]")
     const DisplayP3 light = lighten<HSLP3>(red, 0.5f);
     CHECK(light == DisplayP3{1.f, 0.5f, 0.5f});
 }
+
+namespace
+{
+template <typename From, typename To>
+concept MixableTogether = requires(From from, To to) { aest::colors::mix(from, to, 0.5f); };
+} // namespace
+
+TEST_CASE("mix follows the gamut of its input by default", "[colors][operations]")
+{
+    using aest::colors::convert;
+    using aest::colors::mix;
+
+    // P3 red and green blend in LinDisplayP3: in LinSRGB, P3 red would clip
+    const DisplayP3 red{1.f, 0.f, 0.f};
+    const DisplayP3 green{0.f, 1.f, 0.f};
+    const DisplayP3 blend = mix(red, green, 0.5f);
+    CHECK_THAT(blend.red(), WithinAbs(0.735357, 1e-5)); // linear 0.5, encoded
+    CHECK_THAT(blend.green(), WithinAbs(0.735357, 1e-5));
+    CHECK(blend.blue() == 0.f);
+    CHECK(blend == mix<LinDisplayP3>(red, green, 0.5f));
+    CHECK(mix(red, red, 0.5f) == red);
+
+    // HSL over P3 follows P3 too, and SRGB still blends in LinSRGB
+    const HSLP3 hslRed = convert<HSLP3>(red);
+    CHECK_THAT(convert<DisplayP3>(mix(hslRed, hslRed, 0.5f)).green(), WithinAbs(0., 1e-5));
+    CHECK(mix(SRGB{1.f, 0.f, 0.f}, SRGB{0.f, 0.f, 1.f}, 0.5f)
+          == mix<LinSRGB>(SRGB{1.f, 0.f, 0.f}, SRGB{0.f, 0.f, 1.f}, 0.5f));
+
+    // XYZ blends in XYZ, so colors outside every gamut survive
+    STATIC_REQUIRE(mix(XYZ{0.f, 1.f, 0.f}, XYZ{0.f, 0.f, 1.f}, 0.5f) == XYZ{0.f, 0.5f, 0.5f});
+
+    // An explicit space still wins
+    CHECK(mix<DisplayP3>(red, green, 0.5f) == DisplayP3{0.5f, 0.5f, 0.f});
+    CHECK(mix(red, green, 0.5f, aest::colors::in<DisplayP3>) == DisplayP3{0.5f, 0.5f, 0.f});
+}
+
+TEST_CASE("mix rejects colors of two types", "[colors][operations]")
+{
+    using aest::colors::convert;
+    using aest::colors::mix;
+
+    STATIC_REQUIRE(MixableTogether<SRGB, SRGB>);
+    STATIC_REQUIRE_FALSE(MixableTogether<SRGB, DisplayP3>);
+    STATIC_REQUIRE_FALSE(MixableTogether<SRGB, HSL>);
+
+    // Converting into the wider gamut first keeps the P3 color
+    const SRGB srgbBlue{0.f, 0.f, 1.f};
+    const DisplayP3 p3Red{1.f, 0.f, 0.f};
+    const DisplayP3 blend = mix(convert<DisplayP3>(srgbBlue), p3Red, 1.f);
+    CHECK(blend == p3Red);
+}
+
+TEST_CASE("over follows the gamut of its background by default", "[colors][compositing]")
+{
+    using aest::colors::over;
+
+    constexpr LinDisplayP3 halfRed{1.f, 0.f, 0.f, 0.5f};
+    constexpr LinDisplayP3 blue{0.f, 0.f, 1.f};
+    STATIC_REQUIRE(over(halfRed, blue) == LinDisplayP3{0.5f, 0.f, 0.5f});
+
+    // P3 red over a P3 background keeps its red, which LinSRGB would clip
+    const DisplayP3 onBlue = over(DisplayP3{1.f, 0.f, 0.f}, DisplayP3{0.f, 0.f, 1.f});
+    CHECK(onBlue == DisplayP3{1.f, 0.f, 0.f});
+}

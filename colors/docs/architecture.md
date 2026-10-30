@@ -92,7 +92,7 @@ linear space and its premultiplied form they multiply or divide the
 channels by it, and a premultiplied color with alpha 0 comes back as
 transparent black, since its light is lost. Operations that move a color, such as
 lighten(), keep it too, and so do the scalar operators, which scale only
-the light; those that combine colors, mix() and the LinSRGB operators
+the light; those that combine colors, mix() and the linear-space operators
 between two colors, combine it like the other channels. aest::colors::over()
 composites in premultiplied linear light, where coverage and light add up
 correctly, and returns straight alpha in the background's type.
@@ -169,7 +169,13 @@ spaces where the operation has no meaning, such as Euclidean distance over a
 hue angle.
 
 The defaults are part of the API: they never change silently, because the
-same call would start giving different colors.
+same call would start giving different colors. mix() and over() default to
+`void`, which aest::colors::LinearSpaceOf resolves to linear light in the
+input's own gamut, so a default never clips a wide-gamut color to sRGB. A
+default template argument cannot name a later parameter, so `void` stands in
+for "the input's" while keeping the space the first template argument.
+Operations that combine two colors take them as one type; mix() deletes the
+overload for two types rather than pick one of them for the result.
 
 ## Compile-time evaluation
 

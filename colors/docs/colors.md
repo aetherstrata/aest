@@ -84,8 +84,9 @@ aest::colors::over() composites a color over another with Porter-Duff
 source-over: it converts both to premultiplied linear light, computes
 `foreground + background * (1 - foreground alpha)`, and returns the result in
 the background's type. Its working space, an aest::colors::LinearSpace, is
-the first template argument, LinSRGB when omitted, as for the operations
-below: `over<LinDisplayP3>(fg, bg)` keeps P3 colors that LinSRGB would clip.
+the first template argument; when omitted it is the
+aest::colors::LinearSpaceOf the background, linear light in the background's
+gamut, so P3 colors composite without clipping to sRGB.
 
 ## Operations
 
@@ -96,11 +97,22 @@ aest::colors::in tag, as in `lighten(color, 0.2f, in<HSL>)`, which is the
 same call. The result has the input's type. A space supports an operation by
 specializing the operation's trait.
 
-| Operation                                       | Does                                                                                          | Default space | Trait                       |
-|-------------------------------------------------|-----------------------------------------------------------------------------------------------|---------------|-----------------------------|
-| aest::colors::lighten(), aest::colors::darken() | Move lightness a fraction of the way toward white or black, keeping hue, saturation and alpha | HSL           | aest::colors::Lightness     |
-| aest::colors::mix()                             | Blend two colors, alpha included: 0 gives the first, 1 the second                             | LinSRGB       | aest::colors::Interpolation |
-| aest::colors::euclidean()                       | Distance between two colors, ignoring alpha                                                   | SRGB          | aest::colors::Euclidean     |
+| Operation                                       | Does                                                                                          | Default space                     | Trait                       |
+|-------------------------------------------------|-----------------------------------------------------------------------------------------------|-----------------------------------|-----------------------------|
+| aest::colors::lighten(), aest::colors::darken() | Move lightness a fraction of the way toward white or black, keeping hue, saturation and alpha | HSL                               | aest::colors::Lightness     |
+| aest::colors::mix()                             | Blend two colors, alpha included: 0 gives the first, 1 the second                             | Linear light in the input's gamut | aest::colors::Interpolation |
+| aest::colors::euclidean()                       | Distance between two colors, ignoring alpha                                                   | SRGB                              | aest::colors::Euclidean     |
+
+mix() blends in the aest::colors::LinearSpaceOf its color type: LinSRGB for
+SRGB and HSL, LinDisplayP3 for DisplayP3 and `BasicHSL<DisplayP3>`, XYZ for
+XYZ. Linear blending gives the same result in every linear gamut, so this
+only avoids clipping wide-gamut colors to sRGB. Both colors have one type:
+mix() of two different types is deleted, so convert one into the other's
+type first, into the wider gamut:
+
+```cpp
+const DisplayP3 blend = mix(convert<DisplayP3>(srgbColor), p3Color, 0.5f);
+```
 
 ## Luminance and contrast
 
