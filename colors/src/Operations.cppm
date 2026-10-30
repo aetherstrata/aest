@@ -713,4 +713,363 @@ float contrast_ratio(const Color1& color1, const Color2& color2)
     return (std::max(luminance1, luminance2) + CONTRAST_FLARE)
          / (std::min(luminance1, luminance2) + CONTRAST_FLARE);
 }
+
+/**
+ * @brief Reads and replaces the saturation of a color space: how far a
+ *        color is from the gray of its lightness.
+ *
+ * Specialize it for a color space to make it a SaturationSpace, usable with
+ * saturate(), desaturate() and grayscale(). A static `MAX`, the saturation
+ * of the most colorful color, makes it a BoundedSaturationSpace, which
+ * saturate() moves toward that maximum; without one, saturate() scales.
+ *
+ * @tparam Space The color space.
+ */
+template <ColorType Space>
+struct Saturation;
+
+/**
+ * @brief Saturation of HSL, in the 0-1 range.
+ * @tparam RGB The encoded RGB space of the HSL
+ */
+template <BoundedRGBSpace RGB>
+struct Saturation<BasicHSL<RGB>>
+{
+    /** @brief The saturation of the most colorful colors. */
+    static constexpr float MAX = 1.f;
+
+    /**
+     * @brief Get the saturation of @p color.
+     * @param[in] color The color to read
+     * @return The saturation in the 0-1 range.
+     */
+    static constexpr float get(const BasicHSL<RGB>& color) noexcept { return color.saturation(); }
+
+    /**
+     * @brief Copy @p color with a new saturation.
+     * @param[in] color The color to copy
+     * @param[in] saturation The new saturation in the 0-1 range
+     * @return The color with the same hue, lightness and alpha.
+     */
+    static constexpr BasicHSL<RGB> set(const BasicHSL<RGB>& color, const float saturation)
+    {
+        return BasicHSL<RGB>{color.hue(), saturation, color.lightness(), color.alpha()};
+    }
+};
+
+/**
+ * @brief Saturation of HSV, in the 0-1 range.
+ * @tparam RGB The encoded RGB space of the HSV
+ */
+template <BoundedRGBSpace RGB>
+struct Saturation<BasicHSV<RGB>>
+{
+    /** @brief The saturation of the most colorful colors. */
+    static constexpr float MAX = 1.f;
+
+    /**
+     * @brief Get the saturation of @p color.
+     * @param[in] color The color to read
+     * @return The saturation in the 0-1 range.
+     */
+    static constexpr float get(const BasicHSV<RGB>& color) noexcept { return color.saturation(); }
+
+    /**
+     * @brief Copy @p color with a new saturation.
+     * @param[in] color The color to copy
+     * @param[in] saturation The new saturation in the 0-1 range
+     * @return The color with the same hue, value and alpha.
+     */
+    static constexpr BasicHSV<RGB> set(const BasicHSV<RGB>& color, const float saturation)
+    {
+        return BasicHSV<RGB>{color.hue(), saturation, color.brightness(), color.alpha()};
+    }
+};
+
+/**
+ * @brief Saturation of OKLCH: its chroma, which has no maximum, so
+ *        saturate() scales it.
+ */
+template <>
+struct Saturation<OKLCH>
+{
+    /**
+     * @brief Get the chroma of @p color.
+     * @param[in] color The color to read
+     * @return The chroma, 0 or greater.
+     */
+    static constexpr float get(const OKLCH& color) noexcept { return color.chroma(); }
+
+    /**
+     * @brief Copy @p color with a new chroma.
+     * @param[in] color The color to copy
+     * @param[in] chroma The new chroma
+     * @return The color with the same lightness, hue and alpha.
+     */
+    static constexpr OKLCH set(const OKLCH& color, const float chroma)
+    {
+        return OKLCH{color.lightness(), chroma, color.hue(), color.alpha()};
+    }
+};
+
+/**
+ * @brief A color space whose saturation can be read and replaced through
+ * Saturation.
+ * @tparam T The type to check
+ */
+template <typename T>
+concept SaturationSpace = ColorType<T> && requires(const T& color, const float value) {
+    { Saturation<T>::get(color) } -> std::same_as<float>;
+    { Saturation<T>::set(color, value) } -> std::same_as<T>;
+};
+
+/**
+ * @brief A SaturationSpace whose saturation has a maximum, Saturation::MAX.
+ * @tparam T The type to check
+ */
+template <typename T>
+concept BoundedSaturationSpace = SaturationSpace<T> && requires {
+    { Saturation<T>::MAX } -> std::convertible_to<float>;
+};
+
+/**
+ * @brief Raises the saturation of a color.
+ *
+ * The color is converted to @p Space, its saturation raised and converted
+ * back, keeping hue, lightness and alpha. How depends on the space:
+ *
+ * - With a maximum, a BoundedSaturationSpace such as HSL, the saturation
+ *   `s` moves a fraction of the way toward it: `s + (MAX - s) * amount`,
+ *   with @p amount clamped to the 0-1 range, so 1 gives full saturation.
+ * - Without one, such as the chroma of OKLCH, it is scaled:
+ *   `s * (1 + amount)`, with @p amount 0 or greater, so 1 doubles it.
+ *
+ * In the default, OKLCH, equal amounts look equal across hues and the
+ * perceived lightness is kept; a raised chroma can leave the gamut and clip
+ * when converted back.
+ *
+ * @tparam Space The color space the saturation is adjusted in
+ * @tparam Color The color type of the input and the result
+ * @param[in] color The color to saturate
+ * @param[in] amount How much to raise the saturation, as above; negative
+ *            values keep the color
+ * @param[in] space The working space, e.g. `in<HSL>`; OKLCH when omitted
+ * @return The saturated color.
+ */
+template <SaturationSpace Space = OKLCH, ColorType Color>
+    requires ConvertibleTo<Space, Color> && ConvertibleTo<Color, Space>
+constexpr Color saturate(const Color& color,
+                         const float amount,
+                         [[maybe_unused]] In<Space> space = {})
+{
+    const auto working     = convert<Space>(color);
+    const float saturation = Saturation<Space>::get(working);
+    if constexpr (BoundedSaturationSpace<Space>)
+        return convert<Color>(Saturation<Space>::set(
+            working, saturation + (Saturation<Space>::MAX - saturation) * clamp(amount)));
+    else
+        return convert<Color>(
+            Saturation<Space>::set(working, saturation * (1 + non_negative(amount))));
+}
+
+/**
+ * @brief Moves the saturation of a color a fraction of the way toward gray.
+ *
+ * The color is converted to @p Space, its saturation `s` becomes
+ * `s * (1 - amount)` and it is converted back, keeping hue, lightness and
+ * alpha. In the default, OKLCH, the chroma shrinks and the perceived
+ * lightness is kept; `desaturate<HSL>(color, amount)` works in HSL.
+ *
+ * @tparam Space The color space the saturation is adjusted in
+ * @tparam Color The color type of the input and the result
+ * @param[in] color The color to desaturate
+ * @param[in] amount Fraction of the distance to gray, clamped to the 0-1
+ *            range: 0 keeps the color, 1 gives gray
+ * @param[in] space The working space, e.g. `in<HSL>`; OKLCH when omitted
+ * @return The desaturated color.
+ */
+template <SaturationSpace Space = OKLCH, ColorType Color>
+    requires ConvertibleTo<Space, Color> && ConvertibleTo<Color, Space>
+constexpr Color desaturate(const Color& color,
+                           const float amount,
+                           [[maybe_unused]] In<Space> space = {})
+{
+    const auto working = convert<Space>(color);
+    return convert<Color>(
+        Saturation<Space>::set(working, Saturation<Space>::get(working) * (1 - clamp(amount))));
+}
+
+/**
+ * @brief Turns a color gray, keeping its lightness and alpha.
+ *
+ * The saturation becomes 0 in @p Space. In the default, OKLCH, the gray has
+ * the perceived lightness of the color: pure yellow gives a light gray and
+ * pure blue a dark one, where HSL gives both the same middle gray.
+ *
+ * @tparam Space The color space the saturation is removed in
+ * @tparam Color The color type of the input and the result
+ * @param[in] color The color to turn gray
+ * @param[in] space The working space, e.g. `in<HSL>`; OKLCH when omitted
+ * @return The gray color.
+ */
+template <SaturationSpace Space = OKLCH, ColorType Color>
+    requires ConvertibleTo<Space, Color> && ConvertibleTo<Color, Space>
+constexpr Color grayscale(const Color& color, [[maybe_unused]] In<Space> space = {})
+{
+    return convert<Color>(Saturation<Space>::set(convert<Space>(color), 0.f));
+}
+
+/**
+ * @brief Reads and replaces the hue of a color space, in degrees.
+ *
+ * Specialize it for a color space to make it a HueSpace, usable with
+ * rotate_hue() and complement().
+ *
+ * @tparam Space The color space.
+ */
+template <ColorType Space>
+struct Hue;
+
+/**
+ * @brief Hue of HSL, in degrees.
+ * @tparam RGB The encoded RGB space of the HSL
+ */
+template <BoundedRGBSpace RGB>
+struct Hue<BasicHSL<RGB>>
+{
+    /**
+     * @brief Get the hue of @p color.
+     * @param[in] color The color to read
+     * @return The hue in the [0, 360) range.
+     */
+    static constexpr float get(const BasicHSL<RGB>& color) noexcept { return color.hue(); }
+
+    /**
+     * @brief Copy @p color with a new hue.
+     * @param[in] color The color to copy
+     * @param[in] hue The new hue in degrees, wrapped to [0, 360)
+     * @return The color with the same saturation, lightness and alpha.
+     */
+    static constexpr BasicHSL<RGB> set(const BasicHSL<RGB>& color, const float hue)
+    {
+        return BasicHSL<RGB>{hue, color.saturation(), color.lightness(), color.alpha()};
+    }
+};
+
+/**
+ * @brief Hue of HSV, in degrees.
+ * @tparam RGB The encoded RGB space of the HSV
+ */
+template <BoundedRGBSpace RGB>
+struct Hue<BasicHSV<RGB>>
+{
+    /**
+     * @brief Get the hue of @p color.
+     * @param[in] color The color to read
+     * @return The hue in the [0, 360) range.
+     */
+    static constexpr float get(const BasicHSV<RGB>& color) noexcept { return color.hue(); }
+
+    /**
+     * @brief Copy @p color with a new hue.
+     * @param[in] color The color to copy
+     * @param[in] hue The new hue in degrees, wrapped to [0, 360)
+     * @return The color with the same saturation, value and alpha.
+     */
+    static constexpr BasicHSV<RGB> set(const BasicHSV<RGB>& color, const float hue)
+    {
+        return BasicHSV<RGB>{hue, color.saturation(), color.brightness(), color.alpha()};
+    }
+};
+
+/** @brief Hue of OKLCH, in degrees. */
+template <>
+struct Hue<OKLCH>
+{
+    /**
+     * @brief Get the hue of @p color.
+     * @param[in] color The color to read
+     * @return The hue in the [0, 360) range.
+     */
+    static constexpr float get(const OKLCH& color) noexcept { return color.hue(); }
+
+    /**
+     * @brief Copy @p color with a new hue.
+     * @param[in] color The color to copy
+     * @param[in] hue The new hue in degrees, wrapped to [0, 360)
+     * @return The color with the same lightness, chroma and alpha.
+     */
+    static constexpr OKLCH set(const OKLCH& color, const float hue)
+    {
+        return OKLCH{color.lightness(), color.chroma(), hue, color.alpha()};
+    }
+};
+
+/**
+ * @brief A color space whose hue can be read and replaced through Hue.
+ * @tparam T The type to check
+ */
+template <typename T>
+concept HueSpace = ColorType<T> && requires(const T& color, const float value) {
+    { Hue<T>::get(color) } -> std::same_as<float>;
+    { Hue<T>::set(color, value) } -> std::same_as<T>;
+};
+
+/**
+ * @brief Turns the hue of a color around the hue circle.
+ *
+ * The color is converted to @p Space, its hue moves by @p degrees and it is
+ * converted back, keeping the rest. In the default, OKLCH, the perceived
+ * lightness and chroma are kept, so the rotated color looks as bright as
+ * the original; it may fall outside the gamut and clip when converted back.
+ * Gray colors have no hue and stay as they are.
+ *
+ * @tparam Space The color space the hue is turned in
+ * @tparam Color The color type of the input and the result
+ * @param[in] color The color to rotate
+ * @param[in] degrees The angle to add to the hue, any finite value
+ * @param[in] space The working space, e.g. `in<HSL>`; OKLCH when omitted
+ * @return The rotated color.
+ */
+template <HueSpace Space = OKLCH, ColorType Color>
+    requires ConvertibleTo<Space, Color> && ConvertibleTo<Color, Space>
+constexpr Color rotate_hue(const Color& color,
+                           const float degrees,
+                           [[maybe_unused]] In<Space> space = {})
+{
+    const auto working = convert<Space>(color);
+    return convert<Color>(Hue<Space>::set(working, Hue<Space>::get(working) + degrees));
+}
+
+/**
+ * @brief The complementary color: the hue turned by 180 degrees.
+ * @tparam Space The color space the hue is turned in
+ * @tparam Color The color type of the input and the result
+ * @param[in] color The color to complement
+ * @param[in] space The working space, e.g. `in<HSL>`; OKLCH when omitted
+ * @return The complementary color, with the lightness and alpha of @p color.
+ */
+template <HueSpace Space = OKLCH, ColorType Color>
+    requires ConvertibleTo<Space, Color> && ConvertibleTo<Color, Space>
+constexpr Color complement(const Color& color, [[maybe_unused]] In<Space> space = {})
+{
+    return rotate_hue<Space>(color, 180.f);
+}
+
+/**
+ * @brief Inverts each channel of an encoded RGB color, `1 - c`, like CSS
+ *        `invert()`; alpha is kept.
+ *
+ * It works on the encoded values, as a photo negative of the pixels does, so
+ * a mid gray of SRGB 0.5 stays the same.
+ *
+ * @tparam Color An encoded RGB space, such as SRGB
+ * @param[in] color The color to invert
+ * @return The inverted color.
+ */
+template <BoundedRGBSpace Color>
+constexpr Color invert(const Color& color)
+{
+    return Color{1 - color.red(), 1 - color.green(), 1 - color.blue(), color.alpha()};
+}
 } // namespace aest::colors

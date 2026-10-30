@@ -173,14 +173,15 @@ Each is written once, generically, and works in a *working space*:
 
 1. The inputs are converted to the working space.
 2. The operation runs there, through a trait specialized for that space:
-   aest::colors::Lightness, aest::colors::Interpolation or
-   aest::colors::Euclidean.
+   aest::colors::Lightness, aest::colors::Saturation, aest::colors::Hue,
+   aest::colors::Interpolation or aest::colors::Euclidean.
 3. The result is converted back to the input's type.
 
 The working space is a template parameter with a default, picked either
 explicitly or with a trailing aest::colors::in tag:
 `lighten<HSL>(color, 0.2f)` is `lighten(color, 0.2f, in<HSL>)`. A concept on
-the trait (`LightnessSpace`, `InterpolationSpace`, `EuclideanSpace`) rejects
+the trait (`LightnessSpace`, `SaturationSpace`, `HueSpace`,
+`InterpolationSpace`, `EuclideanSpace`) rejects
 spaces where the operation has no meaning, such as Euclidean distance over a
 hue angle.
 
@@ -207,17 +208,18 @@ The library targets C++20, where `<cmath>` is not `constexpr`. Code paths
 that need it run only at run time; the rest is `constexpr` on GCC, Clang
 and MSVC.
 
-| Compile time                                               | Run time only                                                       |
-|------------------------------------------------------------|---------------------------------------------------------------------|
-| Construction, hex and byte packing, opacity(), `==`        | tf::SRGB, tf::PQ and tf::HLG (`std::pow`, `std::log`)               |
-| Encoded RGB ↔ HSL ↔ HSV conversions                        | euclidean() (`std::sqrt`)                                           |
-| lighten(), darken() and mix() when no step needs `<cmath>` | Anything through an encoding                                        |
-| Premultiplied conversions, over() of linear colors         | contrast_ratio() (`std::pow`)                                       |
-| luminance() of linear colors                               |                                                                     |
-| OKLab → XYZ                                                | OKLab ← XYZ (`std::cbrt`), OKLab ↔ OKLCH (`std::atan2`, `std::cos`) |
-| Linear RGB ↔ XYZ (matrices derived at compile time)        |                                                                     |
-| Tonemapping operators                                      |                                                                     |
-| Packing and unpacking, to_half() and from_half()           |                                                                     |
+| Compile time                                                                                                                  | Run time only                                                       |
+|-------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------|
+| Construction, hex and byte packing, opacity(), `==`                                                                           | tf::SRGB, tf::PQ and tf::HLG (`std::pow`, `std::log`)               |
+| Encoded RGB ↔ HSL ↔ HSV conversions                                                                                           | euclidean() (`std::sqrt`)                                           |
+| lighten(), darken(), saturate(), desaturate(), grayscale(), rotate_hue(), complement() and mix() when no step needs `<cmath>` | Anything through an encoding                                        |
+| Premultiplied conversions, over() of linear colors                                                                            | contrast_ratio() (`std::pow`)                                       |
+| luminance() of linear colors                                                                                                  |                                                                     |
+| OKLab → XYZ                                                                                                                   | OKLab ← XYZ (`std::cbrt`), OKLab ↔ OKLCH (`std::atan2`, `std::cos`) |
+| Linear RGB ↔ XYZ (matrices derived at compile time)                                                                           |                                                                     |
+| Tonemapping operators                                                                                                         |                                                                     |
+| invert()                                                                                                                      |                                                                     |
+| Packing and unpacking, to_half() and from_half()                                                                              |                                                                     |
 
 A function marked `constexpr` whose path reaches a run-time step simply
 cannot be used in a constant expression for those arguments: mix() of two

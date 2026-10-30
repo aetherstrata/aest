@@ -111,11 +111,15 @@ aest::colors::in tag, as in `lighten(color, 0.2f, in<HSL>)`, which is the
 same call. The result has the input's type. A space supports an operation by
 specializing the operation's trait.
 
-| Operation                                       | Does                                                                    | Default space                     | Trait                       |
-|-------------------------------------------------|-------------------------------------------------------------------------|-----------------------------------|-----------------------------|
-| aest::colors::lighten(), aest::colors::darken() | Move a fraction of the way toward white or black, keeping hue and alpha | OKLCH                             | aest::colors::Lightness     |
-| aest::colors::mix()                             | Blend two colors, alpha included: 0 gives the first, 1 the second       | Linear light in the input's gamut | aest::colors::Interpolation |
-| aest::colors::euclidean()                       | Distance between two colors, ignoring alpha: ΔE_OK by default           | OKLab                             | aest::colors::Euclidean     |
+| Operation                                              | Does                                                                                                                          | Default space                     | Trait                       |
+|--------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|-----------------------------------|-----------------------------|
+| aest::colors::lighten(), aest::colors::darken()        | Move a fraction of the way toward white or black, keeping hue and alpha                                                       | OKLCH                             | aest::colors::Lightness     |
+| aest::colors::mix()                                    | Blend two colors, alpha included: 0 gives the first, 1 the second                                                             | Linear light in the input's gamut | aest::colors::Interpolation |
+| aest::colors::euclidean()                              | Distance between two colors, ignoring alpha: ΔE_OK by default                                                                 | OKLab                             | aest::colors::Euclidean     |
+| aest::colors::saturate(), aest::colors::desaturate()   | Raise or lower saturation: in OKLCH scale the chroma by `1 + t` or `1 - t`; in HSL move a fraction of the way to full or gray | OKLCH                             | aest::colors::Saturation    |
+| aest::colors::grayscale()                              | Remove the saturation, keeping the lightness: in OKLCH, the perceived one                                                     | OKLCH                             | aest::colors::Saturation    |
+| aest::colors::rotate_hue(), aest::colors::complement() | Turn the hue by an angle, or by 180°, keeping lightness and chroma                                                            | OKLCH                             | aest::colors::Hue           |
+| aest::colors::invert()                                 | `1 - c` on each encoded RGB channel, like CSS `invert()`, keeping alpha                                                       | The color's own                   | None                        |
 
 lighten() and darken() work in OKLCH, so equal amounts give equal perceived
 steps whatever the hue: in HSL, yellow and blue at the same lightness look
@@ -126,7 +130,14 @@ keeps the saturation instead. euclidean() measures ΔE_OK, the difference in
 OKLab, where equal distances look about equally different; about 0.02 is
 just noticeable. These defaults need `std::cbrt`, so they run at run time;
 the HSL and RGB ones stay `constexpr`. Results in OKLCH and OKLab can fall
-outside the input's gamut and clip when converted back.
+outside the input's gamut and clip when converted back. grayscale(),
+rotate_hue(), complement(), saturate() and desaturate() default to OKLCH
+for the same reason: the gray of pure yellow is light and the gray of pure
+blue dark, where HSL turns both into the same middle gray. OKLCH chroma has
+no maximum, so saturate() scales it, by `1 + amount` with any amount of 0
+or more, and desaturate() by `1 - amount`. In a space with a maximum
+saturation, such as `saturate<HSL>(color, amount)`, saturate() moves a
+fraction of the way to it instead and stays inside the gamut.
 
 mix() blends in the aest::colors::LinearSpaceOf its color type: LinSRGB for
 SRGB and HSL, LinDisplayP3 for DisplayP3 and `BasicHSL<DisplayP3>`, XYZ for

@@ -1840,3 +1840,112 @@ TEST_CASE("mix with a HueMode needs a space with a hue", "[colors][hue]")
     CHECK(mix(red, blue, 0.5f, HueMode::shorter, aest::colors::in<OKLCH>)
           == mix<OKLCH>(red, blue, 0.5f));
 }
+
+namespace
+{
+template <typename Space>
+concept CanSaturateIn = requires(SRGB color) { aest::colors::saturate<Space>(color, 0.5f); };
+
+template <typename Space>
+concept CanDesaturateIn = requires(SRGB color) { aest::colors::desaturate<Space>(color, 0.5f); };
+
+template <typename Color>
+concept Invertible = requires(Color color) { aest::colors::invert(color); };
+} // namespace
+
+TEST_CASE("saturate and desaturate in HSL move toward full or gray", "[colors][operations]")
+{
+    using aest::colors::desaturate;
+    using aest::colors::saturate;
+
+    STATIC_REQUIRE(saturate<HSL>(HSL{30.f, 0.5f, 0.4f, 0.5f}, 0.5f)
+                   == HSL{30.f, 0.75f, 0.4f, 0.5f});
+    STATIC_REQUIRE(desaturate<HSL>(HSL{30.f, 0.5f, 0.4f}, 0.5f) == HSL{30.f, 0.25f, 0.4f});
+    STATIC_REQUIRE(saturate<HSL>(HSL{30.f, 0.5f, 0.4f}, 2.f) == HSL{30.f, 1.f, 0.4f});
+    STATIC_REQUIRE(desaturate<HSL>(HSL{30.f, 0.5f, 0.4f}, -1.f) == HSL{30.f, 0.5f, 0.4f});
+    STATIC_REQUIRE(saturate<HSV>(HSV{30.f, 0.f, 0.8f}, 1.f) == HSV{30.f, 1.f, 0.8f});
+
+    // Other color types go through HSL and come back
+    const SRGB muted = desaturate<HSL>(SRGB{1.f, 0.f, 0.f}, 1.f);
+    CHECK_THAT(muted.red(), WithinAbs(0.5, 1e-6));
+    CHECK_THAT(muted.blue(), WithinAbs(0.5, 1e-6));
+}
+
+TEST_CASE("saturate and desaturate default to scaling OKLCH chroma", "[colors][operations]")
+{
+    using aest::colors::convert;
+    using aest::colors::desaturate;
+    using aest::colors::saturate;
+
+    // Chroma has no maximum, so saturate scales it by 1 + amount, with no cap
+    STATIC_REQUIRE(saturate(OKLCH{0.6f, 0.1f, 40.f, 0.5f}, 0.5f) == OKLCH{0.6f, 0.15f, 40.f, 0.5f});
+    STATIC_REQUIRE(saturate(OKLCH{0.6f, 0.1f, 40.f}, 2.f) == OKLCH{0.6f, 0.3f, 40.f});
+    STATIC_REQUIRE(saturate(OKLCH{0.6f, 0.1f, 40.f}, -1.f) == OKLCH{0.6f, 0.1f, 40.f});
+    STATIC_REQUIRE(desaturate(OKLCH{0.6f, 0.2f, 40.f}, 0.5f) == OKLCH{0.6f, 0.1f, 40.f});
+    STATIC_REQUIRE(desaturate(OKLCH{0.6f, 0.2f, 40.f}, 2.f) == OKLCH{0.6f, 0.f, 40.f});
+
+    STATIC_REQUIRE(CanSaturateIn<OKLCH>);
+    STATIC_REQUIRE(CanDesaturateIn<OKLCH>);
+    STATIC_REQUIRE_FALSE(CanSaturateIn<LinSRGB>);
+
+    // The perceived lightness and hue are kept through other color types
+    const SRGB coral   = SRGB::from_hex(0xC0'70'60);
+    const OKLCH before = convert<OKLCH>(coral);
+    const OKLCH after  = convert<OKLCH>(saturate(coral, 0.25f));
+    CHECK_THAT(after.lightness(), WithinAbs(before.lightness(), 1e-6));
+    CHECK_THAT(after.hue(), WithinAbs(before.hue(), 1e-4));
+    CHECK_THAT(after.chroma(), WithinRel(before.chroma() * 1.25f, 1e-5f));
+}
+
+TEST_CASE("grayscale keeps the perceived lightness", "[colors][operations]")
+{
+    using aest::colors::convert;
+    using aest::colors::grayscale;
+
+    STATIC_REQUIRE(grayscale(OKLCH{0.7f, 0.15f, 100.f, 0.5f}) == OKLCH{0.7f, 0.f, 100.f, 0.5f});
+
+    // Yellow and blue have the same HSL lightness, but not the same gray
+    const SRGB yellow    = SRGB::from_hex(0xFF'FF'00);
+    const SRGB blue      = SRGB::from_hex(0x00'00'FF);
+    const SRGB lightGray = grayscale(yellow);
+    const SRGB darkGray  = grayscale(blue);
+    CHECK_THAT(lightGray.red(), WithinAbs(lightGray.blue(), 1e-5));
+    CHECK_THAT(convert<OKLCH>(lightGray).lightness(),
+               WithinAbs(convert<OKLCH>(yellow).lightness(), 1e-6));
+    CHECK(lightGray.red() > darkGray.red());
+    CHECK(grayscale<HSL>(yellow) == grayscale<HSL>(blue));
+}
+
+TEST_CASE("rotate_hue and complement turn the hue", "[colors][operations]")
+{
+    using aest::colors::complement;
+    using aest::colors::convert;
+    using aest::colors::rotate_hue;
+
+    STATIC_REQUIRE(rotate_hue(OKLCH{0.5f, 0.1f, 350.f}, 20.f) == OKLCH{0.5f, 0.1f, 10.f});
+    STATIC_REQUIRE(rotate_hue(OKLCH{0.5f, 0.1f, 10.f}, -20.f) == OKLCH{0.5f, 0.1f, 350.f});
+    STATIC_REQUIRE(complement(OKLCH{0.5f, 0.1f, 30.f, 0.25f}) == OKLCH{0.5f, 0.1f, 210.f, 0.25f});
+    STATIC_REQUIRE(rotate_hue<HSL>(HSL{0.f, 1.f, 0.5f}, 120.f) == HSL{120.f, 1.f, 0.5f});
+    STATIC_REQUIRE(complement<HSV>(SRGB{1.f, 0.f, 0.f}) == SRGB{0.f, 1.f, 1.f});
+
+    // In OKLCH a full turn comes back, and the perceived lightness never moves
+    const SRGB coral  = SRGB::from_hex(0xFF'7F'50);
+    const SRGB around = rotate_hue(coral, 360.f);
+    CHECK_THAT(around.green(), WithinAbs(coral.green(), 1e-6));
+    const OKLCH turned = convert<OKLCH>(rotate_hue(convert<OKLCH>(coral), 90.f));
+    CHECK_THAT(turned.lightness(), WithinAbs(convert<OKLCH>(coral).lightness(), 1e-6));
+}
+
+TEST_CASE("invert flips encoded RGB channels and keeps alpha", "[colors][operations]")
+{
+    using aest::colors::invert;
+
+    STATIC_REQUIRE(invert(SRGB{1.f, 0.25f, 0.f, 0.5f}) == SRGB{0.f, 0.75f, 1.f, 0.5f});
+    STATIC_REQUIRE(invert(SRGB{0.5f, 0.5f, 0.5f}) == SRGB{0.5f, 0.5f, 0.5f});
+    STATIC_REQUIRE(invert(invert(DisplayP3{0.25f, 0.5f, 0.875f}))
+                   == DisplayP3{0.25f, 0.5f, 0.875f});
+
+    STATIC_REQUIRE(Invertible<DisplayP3>);
+    STATIC_REQUIRE_FALSE(Invertible<LinSRGB>);
+    STATIC_REQUIRE_FALSE(Invertible<HSL>);
+}
