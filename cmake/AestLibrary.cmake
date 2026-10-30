@@ -49,6 +49,8 @@ endfunction()
 
   ``DEPENDS`` lists ``aest::<lib>`` targets; each becomes a public link
   dependency and a ``find_dependency(aest-<lib>)`` in the package config.
+  A dependency not built in this tree, as when a port builds one library,
+  is found as the installed package ``aest-<lib>``.
   ``FIND_PACKAGES`` lists extra ``find_dependency()`` arguments, one package
   per entry, for third-party dependencies linked by the caller.
 
@@ -91,6 +93,12 @@ function(aest_add_library name)
         set(header_install_args FILE_SET HEADERS DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
     endif()
 
+    foreach(dep IN LISTS arg_DEPENDS)
+        if(dep MATCHES "^aest::(.+)$" AND NOT TARGET ${dep})
+            _aest_package_name(${CMAKE_MATCH_1} dep_package)
+            find_package(${dep_package} ${PROJECT_VERSION} CONFIG REQUIRED)
+        endif()
+    endforeach()
     if(arg_DEPENDS)
         target_link_libraries(${target} PUBLIC ${arg_DEPENDS})
     endif()

@@ -5,10 +5,11 @@ A collection of C++20 utility libraries, distributed as C++ modules.
 Every library lives under the `aest::<lib>` namespace and is exposed as the
 module `aest.<lib>`. The umbrella module `aest` re-exports all of them.
 
-| Library                   | Module        | CMake target   | vcpkg port    |
-|---------------------------|---------------|----------------|---------------|
+| Library                    | Module        | CMake target   | vcpkg port    |
+|----------------------------|---------------|----------------|---------------|
+| [blas](blas/README.md)     | `aest.blas`   | `aest::blas`   | `aest-blas`   |
 | [colors](colors/README.md) | `aest.colors` | `aest::colors` | `aest-colors` |
-| *(all of the above)*      | `aest`        | `aest::aest`   | `aest`        |
+| *(all of the above)*       | `aest`        | `aest::aest`   | `aest`        |
 
 ## Requirements
 

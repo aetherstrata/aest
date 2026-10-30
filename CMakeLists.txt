@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.30)
 
 # Every library in the collection, in dependency order.
 # Keep in sync with aest/src/aest.ixx and ports/aest/vcpkg.json.
-set(AEST_ALL_LIBS colors)
+set(AEST_ALL_LIBS blas colors)
 
 set(AEST_LIBS "${AEST_ALL_LIBS}" CACHE STRING "Libraries to build (subset of: ${AEST_ALL_LIBS})")
 option(AEST_BUILD_META "Build the umbrella 'aest' module" ON)

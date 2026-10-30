@@ -1,0 +1,7 @@
+aest-blas provides the module `aest.blas`:
+
+  find_package(aest-blas CONFIG REQUIRED)
+  target_link_libraries(main PRIVATE aest::blas)
+
+  // C++
+  import aest.blas;

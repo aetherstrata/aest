@@ -9,4 +9,5 @@
 
 export module aest;
 
+export import aest.blas;
 export import aest.colors;
