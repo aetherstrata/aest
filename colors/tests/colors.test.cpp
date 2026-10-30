@@ -22,6 +22,7 @@ using aest::colors::HSV;
 using aest::colors::LinSRGB;
 using aest::colors::SRGB;
 using Catch::Matchers::WithinAbs;
+using Catch::Matchers::WithinRel;
 
 TEST_CASE("from_hex unpacks channels", "[colors]")
 {
@@ -1270,4 +1271,88 @@ TEST_CASE("over follows the gamut of its background by default", "[colors][compo
     // P3 red over a P3 background keeps its red, which LinSRGB would clip
     const DisplayP3 onBlue = over(DisplayP3{1.f, 0.f, 0.f}, DisplayP3{0.f, 0.f, 1.f});
     CHECK(onBlue == DisplayP3{1.f, 0.f, 0.f});
+}
+
+namespace
+{
+using aest::colors::Rec2100HLG;
+using aest::colors::Rec2100PQ;
+} // namespace
+
+TEST_CASE("tf::PQ follows SMPTE ST 2084 with linear 1.0 at 203 cd/m2", "[colors][transfer]")
+{
+    using aest::colors::REFERENCE_WHITE_NITS;
+    using aest::colors::tf::PQ;
+
+    // Absolute luminances become linear values through the reference white
+    CHECK(PQ::encode(0.f) < 1e-6f);
+    CHECK_THAT(PQ::encode(10000.f / REFERENCE_WHITE_NITS), WithinAbs(1., 1e-6));
+    CHECK_THAT(PQ::encode(100.f / REFERENCE_WHITE_NITS), WithinAbs(0.508078, 1e-5));
+    CHECK_THAT(PQ::encode(1.f), WithinAbs(0.580689, 1e-5)); // BT.2408: reference white at 58%
+    CHECK_THAT(PQ::encode(1000.f / REFERENCE_WHITE_NITS), WithinAbs(0.751827, 1e-5));
+
+    for (const float linear : {0.001f, 0.01f, 1.f, 4.f, 20.f})
+        CHECK_THAT(PQ::decode(PQ::encode(linear)), WithinRel(linear, 1e-6f));
+}
+
+TEST_CASE("Rec2100PQ puts linear 1.0 at 203 cd/m2", "[colors][transfer]")
+{
+    using aest::colors::convert;
+
+    STATIC_REQUIRE(Rec2100PQ::TYPE == "Rec2100PQ");
+    STATIC_REQUIRE(Rec2100HLG::TYPE == "Rec2100HLG");
+    STATIC_REQUIRE(aest::colors::HDRTransfer<aest::colors::tf::PQ>);
+    STATIC_REQUIRE_FALSE(aest::colors::HDRTransfer<aest::colors::tf::SRGB>);
+
+    const Rec2100PQ white = convert<Rec2100PQ>(LinRec2020{1.f, 1.f, 1.f});
+    CHECK_THAT(white.red(), WithinAbs(0.580689, 1e-5));
+
+    // sRGB white is the reference white too, so it lands on the same signal
+    const Rec2100PQ srgbWhite = convert<Rec2100PQ>(SRGB::from_hex(0xFF'FF'FF));
+    CHECK_THAT(srgbWhite.green(), WithinAbs(0.580689, 1e-4));
+
+    // HDR values round-trip: four times reference white is 812 cd/m2
+    const LinRec2020 bright{4.f, 2.f, 0.5f};
+    const Rec2100PQ encoded = convert<Rec2100PQ>(bright);
+    CHECK_THAT(encoded.red(), WithinAbs(0.729145, 1e-5));
+    const LinRec2020 back = convert<LinRec2020>(encoded);
+    CHECK_THAT(back.red(), WithinRel(4.f, 1e-6f));
+    CHECK_THAT(back.green(), WithinRel(2.f, 1e-6f));
+    CHECK_THAT(back.blue(), WithinRel(0.5f, 1e-6f));
+
+    // The signal tops out at 10000 cd/m2, linear 49.26
+    CHECK(convert<Rec2100PQ>(LinRec2020{100.f, 0.f, 0.f}).red() == 1.f);
+}
+
+TEST_CASE("Rec2100HLG puts linear 1.0 at 75%", "[colors][transfer]")
+{
+    using aest::colors::convert;
+
+    const Rec2100HLG white = convert<Rec2100HLG>(LinRec2020{1.f, 1.f, 1.f});
+    CHECK_THAT(white.red(), WithinAbs(0.75, 1e-5));
+
+    // The two segments of the OETF meet at scene light 1/12, signal 0.5
+    CHECK_THAT(aest::colors::tf::HLG::encode(1.f / 12 / 0.264962560f), WithinAbs(0.5, 1e-5));
+    CHECK_THAT(aest::colors::tf::HLG::encode(2.f), WithinAbs(0.882541, 1e-5));
+
+    for (const float linear : {0.f, 0.1f, 1.f, 3.f})
+        CHECK_THAT(aest::colors::tf::HLG::decode(aest::colors::tf::HLG::encode(linear)),
+                   WithinAbs(linear, 1e-6));
+    CHECK(convert<Rec2100HLG>(LinRec2020{4.f, 0.f, 0.f}).red() == 1.f);
+}
+
+TEST_CASE("HDR signals join the tree but not HSL", "[colors][transfer]")
+{
+    using aest::colors::convert;
+
+    STATIC_REQUIRE_FALSE(aest::colors::BoundedRGBSpace<Rec2100PQ>);
+    STATIC_REQUIRE_FALSE(HasHSL<Rec2100PQ>);
+    STATIC_REQUIRE_FALSE(HasHSV<Rec2100HLG>);
+    STATIC_REQUIRE(aest::colors::ConvertibleTo<Rec2100HLG, Rec2100PQ>);
+
+    // PQ to HLG through their shared linear space, and mix in linear light
+    const Rec2100HLG hlg = convert<Rec2100HLG>(convert<Rec2100PQ>(LinRec2020{1.f, 1.f, 1.f}));
+    CHECK_THAT(hlg.blue(), WithinAbs(0.75, 1e-4));
+    const Rec2100PQ pq{0.58f, 0.58f, 0.58f};
+    CHECK_THAT(aest::colors::mix(pq, pq, 0.5f).red(), WithinAbs(0.58, 1e-5));
 }

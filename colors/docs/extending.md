@@ -81,7 +81,9 @@ struct Gamma22
 };
 ```
 
-Mark `encode` and `decode` `constexpr` only if they avoid `<cmath>`. Test
+For an HDR signal, add `static constexpr bool IS_HDR = true;` so HSL and
+HSV over it are rejected. Mark `encode` and `decode` `constexpr` only if
+they avoid `<cmath>`. Test
 known encoded values and the round trip through the linear space.
 
 ## Adding an operation

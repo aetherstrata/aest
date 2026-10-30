@@ -66,3 +66,25 @@ const SRGB pixel = convert<SRGB>(frame);
 
 A premultiplied color with alpha 0 converts back to transparent black: its
 light was multiplied away.
+
+## HDR output
+
+HDR displays take a signal relative to an absolute luminance (PQ) or to the
+display's peak (HLG), in the Rec. 2020 gamut. The library keeps linear 1.0
+as the reference white everywhere, 203 cd/m² after ITU-R BT.2408, so a scene
+lit for SDR keeps its brightness on an HDR display, and highlights above 1
+use the headroom:
+
+```cpp
+LinRec2020 scene = convert<LinRec2020>(sceneInLinSRGB); // same light, wider gamut
+const Rec2100PQ hdr10 = convert<Rec2100PQ>(scene);     // 1.0 -> 58%, 4.0 -> 73%
+const Rec2100HLG hlg  = convert<Rec2100HLG>(scene);    // 1.0 -> 75%
+```
+
+PQ is absolute: linear 49.26 is the 10000 cd/m² top of the signal. A
+pipeline that works in cd/m² divides by aest::colors::REFERENCE_WHITE_NITS to
+get linear values, as in `tf::PQ::encode(nits / REFERENCE_WHITE_NITS)`.
+HLG is relative: the library applies its OETF only, so the linear values are
+scene light and the display applies the OOTF for its own peak. Neither
+signal tonemaps: values beyond the signal's range clip, so tonemap first
+when the scene is brighter than the display.

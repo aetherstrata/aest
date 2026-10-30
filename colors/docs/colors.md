@@ -22,10 +22,18 @@ arithmetic operators. The aliases name the usual spaces:
 | aest::colors::LinDisplayP3 | gamut::DisplayP3 | tf::Linear |
 | aest::colors::LinRec2020   | gamut::Rec2020   | tf::Linear |
 | aest::colors::ACEScg       | gamut::AP1       | tf::Linear |
+| aest::colors::Rec2100PQ    | gamut::Rec2020   | tf::PQ     |
+| aest::colors::Rec2100HLG   | gamut::Rec2020   | tf::HLG    |
 
 SRGB is the encoding of hex codes, bytes and CSS; convert to a linear space
 for color math. aest::colors::RGBSpace, aest::colors::LinearRGBSpace and
 aest::colors::BoundedRGBSpace tell the kinds apart.
+
+Rec2100PQ and Rec2100HLG are the HDR signals of Rec. 2100. Linear 1.0 is the
+BT.2408 reference white, aest::colors::REFERENCE_WHITE_NITS, 203 cd/m²: PQ encodes it to 58%
+and reaches 10000 cd/m² at linear 49.26; HLG encodes it to 75% and reaches
+its peak at linear 3.77, without an OOTF. For a luminance in cd/m², divide
+by REFERENCE_WHITE_NITS first, as in `tf::PQ::encode(1000.f / REFERENCE_WHITE_NITS)`.
 
 - aest::colors::BasicHSL, aest::colors::BasicHSV — hue, saturation and
   lightness or value, over an encoded RGB space: `BasicHSL<DisplayP3>` reaches

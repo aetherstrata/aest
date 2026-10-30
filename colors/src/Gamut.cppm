@@ -218,6 +218,14 @@ inline constexpr std::string_view RGB_NAME{RGB_NAME_CHARS<Gamut, Transfer>.data(
 /** @brief Linear AP1 goes by the name of its ACES working space. */
 template <>
 inline constexpr std::string_view RGB_NAME<gamut::AP1, tf::Linear> = "ACEScg";
+
+/** @brief Rec. 2020 with PQ is the PQ space of Rec. 2100. */
+template <>
+inline constexpr std::string_view RGB_NAME<gamut::Rec2020, tf::PQ> = "Rec2100PQ";
+
+/** @brief Rec. 2020 with HLG is the HLG space of Rec. 2100. */
+template <>
+inline constexpr std::string_view RGB_NAME<gamut::Rec2020, tf::HLG> = "Rec2100HLG";
 } // namespace aest::colors
 
 namespace aest::colors
@@ -417,6 +425,13 @@ using LinRec2020 = BasicRGB<gamut::Rec2020, tf::Linear>;
 
 /** @brief ACEScg: linear AP1, the working space of ACES rendering and compositing. */
 using ACEScg = BasicRGB<gamut::AP1, tf::Linear>;
+
+/** @brief Rec. 2100 PQ: Rec. 2020 primaries with the PQ signal of HDR10, linear 1.0 at 203 cd/m².
+ */
+using Rec2100PQ = BasicRGB<gamut::Rec2020, tf::PQ>;
+
+/** @brief Rec. 2100 HLG: Rec. 2020 primaries with the HLG signal, linear 1.0 at 75%. */
+using Rec2100HLG = BasicRGB<gamut::Rec2020, tf::HLG>;
 } // namespace aest::colors
 
 namespace aest::colors
@@ -459,10 +474,12 @@ template <typename T>
 concept LinearRGBSpace = RGBSpace<T> && std::same_as<typename RGBParts<T>::TransferTag, tf::Linear>;
 
 /**
- * @brief A BasicRGB space whose channels are clamped to the 0-1 range: an
- *        encoded, display-referred one.
+ * @brief A BasicRGB space with an SDR encoding: channels in the 0-1 range,
+ *        relative to the display's white. Linear spaces and HDR signals such
+ *        as PQ are left out.
  * @tparam T The type to check
  */
 template <typename T>
-concept BoundedRGBSpace = RGBSpace<T> && !LinearRGBSpace<T>;
+concept BoundedRGBSpace =
+    RGBSpace<T> && !LinearRGBSpace<T> && !HDRTransfer<typename RGBParts<T>::TransferTag>;
 } // namespace aest::colors
