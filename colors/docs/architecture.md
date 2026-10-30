@@ -103,8 +103,8 @@ Each is written once, generically, and works in a *working space*:
 3. The result is converted back to the input's type.
 
 The working space is a template parameter with a default, picked either
-with a trailing aest::colors::in tag or explicitly:
-`lighten(color, 0.2f, in<HSL>)` is `lighten<HSL>(color, 0.2f)`. A concept on
+explicitly or with a trailing aest::colors::in tag:
+`lighten<HSL>(color, 0.2f)` is `lighten(color, 0.2f, in<HSL>)`. A concept on
 the trait (`LightnessSpace`, `InterpolationSpace`, `EuclideanSpace`) rejects
 spaces where the operation has no meaning, such as Euclidean distance over a
 hue angle.

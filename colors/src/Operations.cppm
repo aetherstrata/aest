@@ -193,8 +193,9 @@ concept InterpolationSpace = ColorType<T> && requires(const T& color, const floa
  *
  * Both colors are converted to @p Space, interpolated there channel by
  * channel, alpha included, and converted back. The default, linear sRGB,
- * blends the light physically; `in<SRGB>` blends the encoded values instead,
- * like CSS `color-mix(in srgb, …)`, which gives darker midpoints.
+ * blends the light physically; `mix<SRGB>(from, to, amount)` blends the
+ * encoded values instead, like CSS `color-mix(in srgb, …)`, which gives
+ * darker midpoints.
  *
  * @tparam Space The color space the colors are blended in
  * @tparam Color The color type of the inputs and the result

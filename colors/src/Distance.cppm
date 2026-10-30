@@ -96,8 +96,8 @@ concept EuclideanSpace = ColorType<T> && requires(const T& color) {
  *
  * Both colors are converted to @p Space and the distance between their
  * channels is measured there, ignoring alpha. The default, gamma-encoded
- * SRGB, is closer to how different the colors look; `in<LinSRGB>` measures
- * the difference in light.
+ * SRGB, is closer to how different the colors look;
+ * `euclidean<LinSRGB>(color1, color2)` measures the difference in light.
  *
  * @tparam Space The color space the distance is measured in
  * @tparam Color1 Color type of @p color1

@@ -43,10 +43,10 @@ exposure or a light's intensity would.
 ## Operations
 
 Operations are free functions. Each works in a default color space, fixed so
-results never change silently; another space is picked with a trailing
-aest::colors::in tag or as the first template argument, so
-`lighten(color, 0.2f, in<HSL>)` and `lighten<HSL>(color, 0.2f)` are the same
-call. The result has the input's type. A space supports an operation by
+results never change silently; another space is picked as the first
+template argument, as in `lighten<HSL>(color, 0.2f)`, or with a trailing
+aest::colors::in tag, as in `lighten(color, 0.2f, in<HSL>)`, which is the
+same call. The result has the input's type. A space supports an operation by
 specializing the operation's trait.
 
 | Operation | Does | Default space | Trait |
