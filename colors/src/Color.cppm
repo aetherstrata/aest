@@ -31,6 +31,16 @@ constexpr float clamp(const float value)
 }
 
 /**
+ * @brief Clamp a floating-point value to be non-negative, leaving it unbounded above.
+ * @param[in] value The value to clamp
+ * @return The value, or 0 when it is negative
+ */
+constexpr float non_negative(const float value)
+{
+    return std::max(value, 0.f);
+}
+
+/**
  * @brief Convert an 8-bit color channel value to a float in the 0-1 range.
  * @param[in] value The 8-bit color channel value
  * @return The corresponding float value in the 0-1 range
@@ -206,7 +216,8 @@ public:
  * all four channels, alpha included: two half-transparent colors add up to an
  * opaque one, and `a - a` is fully transparent. The results are built through
  * the derived type's `(ch1, ch2, ch3, alpha)` constructor, so they are clamped
- * like any other value of that type.
+ * like any other value of that type: LinSRGB channels stop at 0 but not at 1,
+ * and alpha stays in the 0-1 range.
  *
  * There are no scalar operators: multiplying by a scalar would scale the
  * alpha with the light. Scale by a gray color instead, choosing the alpha
@@ -424,6 +435,10 @@ public:
  *
  * Blending, averaging and other color math are physically correct only in
  * this space. Convert from and to SRGB with convert().
+ *
+ * Channels are clamped at 0 only, so they can hold HDR values: 1 is the
+ * brightest value SRGB can encode, and anything above is clipped to 1 when
+ * converted to it.
  */
 export class LinSRGB final : public ColorBase<LinSRGB>, public ColorArithmetic<LinSRGB>
 {
@@ -445,25 +460,25 @@ public:
      * @pre Every channel is finite: NaN and infinities are undefined behavior.
      */
     constexpr LinSRGB(const float r, const float g, const float b, const float a = 1.0f)
-        : ColorBase(a, clamp(r), clamp(g), clamp(b))
+        : ColorBase(a, non_negative(r), non_negative(g), non_negative(b))
     {}
 
     ///@name Color Channels
     ///@{
     /**
-     * @brief Get the linear red channel value in the 0-1 range.
+     * @brief Get the linear red channel value, 0 or greater.
      * @return The red channel value
      */
     [[nodiscard]] constexpr float red() const noexcept { return _ch1; }
 
     /**
-     * @brief Get the linear green channel value in the 0-1 range.
+     * @brief Get the linear green channel value, 0 or greater.
      * @return The green channel value
      */
     [[nodiscard]] constexpr float green() const noexcept { return _ch2; }
 
     /**
-     * @brief Get the linear blue channel value in the 0-1 range.
+     * @brief Get the linear blue channel value, 0 or greater.
      * @return The blue channel value
      */
     [[nodiscard]] constexpr float blue() const noexcept { return _ch3; }

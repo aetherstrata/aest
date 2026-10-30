@@ -450,14 +450,15 @@ TEST_CASE("Only LinSRGB has arithmetic operators", "[colors]")
     STATIC_REQUIRE_FALSE(Addable<aest::colors::HSV>);
 }
 
-TEST_CASE("LinSRGB arithmetic is channel-wise and clamped", "[colors]")
+TEST_CASE("LinSRGB arithmetic is channel-wise and clamped at 0", "[colors]")
 {
     constexpr LinSRGB a{0.5f, 0.25f, 0.75f, 1.f};
     constexpr LinSRGB b{0.25f, 0.25f, 0.5f, 0.5f};
 
     STATIC_REQUIRE(a - b == LinSRGB{0.25f, 0.f, 0.25f, 0.5f});
     STATIC_REQUIRE(b - a == LinSRGB{0.f, 0.f, 0.f, 0.f});
-    STATIC_REQUIRE(a + b == LinSRGB{0.75f, 0.5f, 1.f, 1.f});
+    STATIC_REQUIRE(a + b == LinSRGB{0.75f, 0.5f, 1.25f, 1.f});
+    STATIC_REQUIRE((a + b).blue() == 1.25f);
     STATIC_REQUIRE(a * b == LinSRGB{0.125f, 0.0625f, 0.375f, 0.5f});
 
     LinSRGB c = a;
@@ -467,6 +468,34 @@ TEST_CASE("LinSRGB arithmetic is channel-wise and clamped", "[colors]")
     CHECK(c == a);
     c *= b;
     CHECK(c == a * b);
+}
+
+TEST_CASE("LinSRGB holds HDR values", "[colors]")
+{
+    constexpr LinSRGB bright{4.f, 1.5f, -0.5f, 2.f};
+    STATIC_REQUIRE(bright.red() == 4.f);
+    STATIC_REQUIRE(bright.green() == 1.5f);
+    STATIC_REQUIRE(bright.blue() == 0.f);
+    STATIC_REQUIRE(bright.alpha() == 1.f);
+
+    constexpr LinSRGB sum = LinSRGB{0.75f, 0.75f, 0.75f} + LinSRGB{0.75f, 0.75f, 0.75f};
+    STATIC_REQUIRE(sum == LinSRGB{1.5f, 1.5f, 1.5f, 1.f});
+}
+
+TEST_CASE("HDR LinSRGB values clip to 1 in SRGB", "[colors]")
+{
+    const SRGB srgb = aest::colors::convert<SRGB>(LinSRGB{4.f, 1.f, 0.5f, 0.5f});
+    CHECK(srgb.red() == 1.f);
+    CHECK(srgb.green() == 1.f);
+    CHECK_THAT(srgb.blue(), WithinAbs(0.735357, 1e-5));
+    CHECK(srgb.alpha() == 0.5f);
+}
+
+TEST_CASE("mix keeps HDR values in LinSRGB", "[colors][operations]")
+{
+    constexpr LinSRGB dim{2.f, 0.5f, 0.f};
+    constexpr LinSRGB bright{4.f, 1.5f, 8.f};
+    STATIC_REQUIRE(aest::colors::mix(dim, bright, 0.5f) == LinSRGB{3.f, 1.f, 4.f});
 }
 
 namespace

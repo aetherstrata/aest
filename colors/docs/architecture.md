@@ -41,7 +41,7 @@ value of a color type is always valid for that space.
 | Space     | Channels                                                     | Alpha |
 |-----------|--------------------------------------------------------------|-------|
 | SRGB      | Clamped to [0, 1]                                            | [0, 1] |
-| LinSRGB   | Clamped to [0, 1]                                            | [0, 1] |
+| LinSRGB   | Clamped at 0, unbounded above: values over 1 are HDR light   | [0, 1] |
 | HSL, HSV  | Hue wrapped to [0, 360); saturation, lightness/value clamped to [0, 1] | [0, 1] |
 
 Channels must be finite: NaN and infinities are a precondition violation,
@@ -83,7 +83,10 @@ whether one exists, and the operations are constrained on it, so a space
 outside the tree is rejected when the call is resolved.
 
 Each step goes through a constructor, so it clamps to the range of the
-intermediate space. Every hop also costs some float precision: a direct
+intermediate space. HDR light is lost wherever a path crosses SRGB: LinSRGB
+values above 1 clip to 1 there. lighten() of a LinSRGB color works in HSL,
+so it clips them too, while mix() and the arithmetic operators stay in
+LinSRGB and keep them. Every hop also costs some float precision: a direct
 shortcut is worth adding when a pair is converted often.
 
 ## Operations

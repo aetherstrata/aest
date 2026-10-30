@@ -481,15 +481,15 @@ struct Converter<SRGB, LinSRGB>
 {
     /**
      * @brief Convert a color channel value from linear space to sRGB.
-     * @param[in] value The linear value in the 0-1 range.
-     * @return The sRGB value in the 0-1 range.
+     * @param[in] value The linear value, 0 or greater.
+     * @return The sRGB value in the 0-1 range: values from 1 up give 1.
      * @note This function is implemented according to the sRGB standard, as defined
      *       by W3C in "https://www.w3.org/Graphics/Color/sRGB.html".
      * @note Not constexpr: std::pow is constexpr only since C++26.
      */
     static float linear_to_srgb(const float value)
     {
-        if (value == 1.f)
+        if (value >= 1.f)
             return 1.f;
 
         return value <= 0.0031308f ? 12.92f * value

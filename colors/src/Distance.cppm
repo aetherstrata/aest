@@ -72,7 +72,8 @@ struct Euclidean<LinSRGB>
      * @brief Distance between the light of two colors, ignoring alpha.
      * @param[in] color1 First color
      * @param[in] color2 Second color
-     * @return The distance, in the 0-sqrt(3) range.
+     * @return The distance, 0 or greater: in the 0-sqrt(3) range when no
+     *         channel exceeds 1, unbounded for HDR colors.
      */
     static float distance(const LinSRGB& color1, const LinSRGB& color2)
     {
@@ -104,7 +105,8 @@ concept EuclideanSpace = ColorType<T> && requires(const T& color) {
  * @param[in] color1 First color
  * @param[in] color2 Second color
  * @param[in] space The working space, e.g. `in<LinSRGB>`; SRGB when omitted
- * @return The distance, in the 0-sqrt(3) range for SRGB and LinSRGB.
+ * @return The distance, in the 0-sqrt(3) range for SRGB and for LinSRGB
+ *         colors without HDR values.
  */
 template <EuclideanSpace Space = SRGB, ColorType Color1, ColorType Color2>
     requires ConvertibleTo<Space, Color1> && ConvertibleTo<Space, Color2>

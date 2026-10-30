@@ -34,7 +34,9 @@ a conversion exists.
 
 LinSRGB has `+`, `-` and `*` between two colors, and their compound forms,
 through aest::colors::ColorArithmetic. Every operator combines all four
-channels, alpha included, and clamps the result. There are no scalar
+channels, alpha included, and clamps the result like the constructor does:
+the color channels at 0 only, so sums can exceed 1 and hold HDR light, and
+alpha to [0, 1]. There are no scalar
 operators: scale by a gray color instead, as in `color *= {0.5f, 0.5f, 0.5f}`
 (alpha defaults to 1).
 
