@@ -539,13 +539,13 @@ TEST_CASE("lighten moves HSL lightness toward white", "[colors][operations]")
 {
     using aest::colors::lighten;
 
-    const SRGB gray = lighten(SRGB{}, 0.5f);
+    const SRGB gray = lighten<HSL>(SRGB{}, 0.5f);
     CHECK_THAT(gray.red(), WithinAbs(0.5, 1e-6));
     CHECK_THAT(gray.green(), WithinAbs(0.5, 1e-6));
     CHECK_THAT(gray.blue(), WithinAbs(0.5, 1e-6));
 
     // Orange is HSL(30, 1, 0.5); lightness 0.5 -> 0.75 keeps hue, saturation and alpha
-    const SRGB light = lighten(SRGB{1.f, 0.5f, 0.f, 0.5f}, 0.5f);
+    const SRGB light = lighten<HSL>(SRGB{1.f, 0.5f, 0.f, 0.5f}, 0.5f);
     CHECK_THAT(light.red(), WithinAbs(1., 1e-6));
     CHECK_THAT(light.green(), WithinAbs(0.75, 1e-6));
     CHECK_THAT(light.blue(), WithinAbs(0.5, 1e-6));
@@ -557,10 +557,10 @@ TEST_CASE("lighten clamps the amount to [0, 1]", "[colors][operations]")
     using aest::colors::lighten;
 
     constexpr SRGB coral = SRGB::from_hex(0xFF'7F'50);
-    CHECK(lighten(coral, 0.f).to_rgba() == coral.to_rgba());
-    CHECK(lighten(coral, -1.f).to_rgba() == coral.to_rgba());
-    CHECK(lighten(coral, 1.f).to_rgba() == 0xFF'FF'FF'FF);
-    CHECK(lighten(coral, 2.f).to_rgba() == 0xFF'FF'FF'FF);
+    CHECK(lighten<HSL>(coral, 0.f).to_rgba() == coral.to_rgba());
+    CHECK(lighten<HSL>(coral, -1.f).to_rgba() == coral.to_rgba());
+    CHECK(lighten<HSL>(coral, 1.f).to_rgba() == 0xFF'FF'FF'FF);
+    CHECK(lighten<HSL>(coral, 2.f).to_rgba() == 0xFF'FF'FF'FF);
 }
 
 TEST_CASE("darken moves HSL lightness toward black", "[colors][operations]")
@@ -568,17 +568,17 @@ TEST_CASE("darken moves HSL lightness toward black", "[colors][operations]")
     using aest::colors::darken;
 
     // Orange is HSL(30, 1, 0.5); lightness 0.5 -> 0.25 keeps hue, saturation and alpha
-    const SRGB dark = darken(SRGB{1.f, 0.5f, 0.f, 0.5f}, 0.5f);
+    const SRGB dark = darken<HSL>(SRGB{1.f, 0.5f, 0.f, 0.5f}, 0.5f);
     CHECK_THAT(dark.red(), WithinAbs(0.5, 1e-6));
     CHECK_THAT(dark.green(), WithinAbs(0.25, 1e-6));
     CHECK_THAT(dark.blue(), WithinAbs(0., 1e-6));
     CHECK(dark.alpha() == 0.5f);
 
     constexpr SRGB coral = SRGB::from_hex(0xFF'7F'50);
-    CHECK(darken(coral, 0.f).to_rgba() == coral.to_rgba());
-    CHECK(darken(coral, -1.f).to_rgba() == coral.to_rgba());
-    CHECK(darken(coral, 1.f).to_rgba() == 0x00'00'00'FF);
-    CHECK(darken(coral, 2.f).to_rgba() == 0x00'00'00'FF);
+    CHECK(darken<HSL>(coral, 0.f).to_rgba() == coral.to_rgba());
+    CHECK(darken<HSL>(coral, -1.f).to_rgba() == coral.to_rgba());
+    CHECK(darken<HSL>(coral, 1.f).to_rgba() == 0x00'00'00'FF);
+    CHECK(darken<HSL>(coral, 2.f).to_rgba() == 0x00'00'00'FF);
 }
 
 namespace
@@ -594,13 +594,15 @@ TEST_CASE("The working space is chosen with in<Space>", "[colors][operations]")
     using aest::colors::lighten;
 
     constexpr SRGB coral = SRGB::from_hex(0xFF'7F'50);
-    CHECK(lighten<HSL>(coral, 0.3f) == lighten(coral, 0.3f));
-    CHECK(darken<HSL>(coral, 0.3f) == darken(coral, 0.3f));
+    CHECK(lighten<HSL>(coral, 0.3f) == lighten(coral, 0.3f, in<HSL>));
+    CHECK(darken<HSL>(coral, 0.3f) == darken(coral, 0.3f, in<HSL>));
+    CHECK(lighten(coral, 0.3f) == lighten<aest::colors::OKLCH>(coral, 0.3f));
+    CHECK(darken(coral, 0.3f) == darken<aest::colors::OKLCH>(coral, 0.3f));
 
     // The result has the input's type, with no conversion when it is the working space
     const HSL hsl{200.f, 0.5f, 0.4f, 0.75f};
-    STATIC_REQUIRE(std::is_same_v<decltype(lighten(hsl, 0.5f)), HSL>);
-    const HSL light = lighten(hsl, 0.5f);
+    STATIC_REQUIRE(std::is_same_v<decltype(lighten<HSL>(hsl, 0.5f)), HSL>);
+    const HSL light = lighten<HSL>(hsl, 0.5f);
     CHECK(light.hue() == 200.f);
     CHECK(light.saturation() == 0.5f);
     CHECK_THAT(light.lightness(), WithinAbs(0.7, 1e-6));
@@ -619,8 +621,8 @@ TEST_CASE("Operations convert through the conversion tree", "[colors][operations
     using aest::colors::mix;
 
     const LinSRGB linear{0.2f, 0.4f, 0.6f, 0.5f};
-    const LinSRGB light    = lighten(linear, 0.5f);
-    const LinSRGB expected = convert<LinSRGB>(lighten(convert<SRGB>(linear), 0.5f));
+    const LinSRGB light    = lighten<HSL>(linear, 0.5f);
+    const LinSRGB expected = convert<LinSRGB>(lighten<HSL>(convert<SRGB>(linear), 0.5f));
     CHECK_THAT(light.red(), WithinAbs(expected.red(), 1e-6));
     CHECK_THAT(light.green(), WithinAbs(expected.green(), 1e-6));
     CHECK_THAT(light.blue(), WithinAbs(expected.blue(), 1e-6));
@@ -703,9 +705,9 @@ TEST_CASE("euclidean measures in SRGB by default", "[colors][distance]")
     const SRGB white{1.f, 1.f, 1.f};
     const SRGB gray{0.5f, 0.5f, 0.5f};
 
-    CHECK_THAT(euclidean(black, white), WithinAbs(1.732051, 1e-6)); // sqrt(3)
-    CHECK_THAT(euclidean(black, gray), WithinAbs(0.866025, 1e-6));  // sqrt(3) * 0.5
-    CHECK(euclidean(black, gray, in<SRGB>) == euclidean(black, gray));
+    CHECK_THAT(euclidean<SRGB>(black, white), WithinAbs(1.732051, 1e-6)); // sqrt(3)
+    CHECK_THAT(euclidean<SRGB>(black, gray), WithinAbs(0.866025, 1e-6));  // sqrt(3) * 0.5
+    CHECK(euclidean(black, gray, in<SRGB>) == euclidean<SRGB>(black, gray));
 
     // In linear light the encoded 0.5 gray is only 0.214 bright: sqrt(3) * 0.214041
     CHECK_THAT(euclidean(black, white, in<LinSRGB>), WithinAbs(1.732051, 1e-6));
@@ -736,7 +738,8 @@ TEST_CASE("euclidean accepts mixed color types and needs a Euclidean space", "[c
     using aest::colors::euclidean;
 
     CHECK_THAT(euclidean(HSL{0.f, 1.f, 0.5f}, SRGB{1.f, 0.f, 0.f}), WithinAbs(0., 1e-6));
-    CHECK_THAT(euclidean(HSV{120.f, 1.f, 1.f}, SRGB{1.f, 0.f, 0.f}), WithinAbs(1.414214, 1e-6));
+    CHECK_THAT(euclidean<SRGB>(HSV{120.f, 1.f, 1.f}, SRGB{1.f, 0.f, 0.f}),
+               WithinAbs(1.414214, 1e-6));
 
     STATIC_REQUIRE(CanMeasureIn<SRGB>);
     STATIC_REQUIRE(CanMeasureIn<LinSRGB>);
@@ -1660,6 +1663,7 @@ TEST_CASE("OKLab and OKLCH round-trip through the tree", "[colors][oklab]")
 TEST_CASE("Operations work in OKLab and OKLCH", "[colors][oklab]")
 {
     using aest::colors::convert;
+    using aest::colors::darken;
     using aest::colors::euclidean;
     using aest::colors::lighten;
     using aest::colors::mix;
@@ -1667,11 +1671,10 @@ TEST_CASE("Operations work in OKLab and OKLCH", "[colors][oklab]")
     // ΔE_OK: black to white is 1
     CHECK_THAT(euclidean<OKLab>(SRGB{0.f, 0.f, 0.f}, SRGB{1.f, 1.f, 1.f}), WithinAbs(1., 1e-6));
 
-    // lighten in OKLCH moves the perceived lightness, keeping chroma and hue
-    const OKLCH lch{0.5f, 0.1f, 200.f};
-    const OKLCH light = lighten<OKLCH>(lch, 0.5f);
-    STATIC_REQUIRE(lighten<OKLCH>(OKLCH{0.5f, 0.1f, 200.f}, 0.5f) == OKLCH{0.75f, 0.1f, 200.f});
-    CHECK(light.chroma() == lch.chroma());
+    // lighten in OKLCH moves halfway to white, chroma shrinking by half too
+    STATIC_REQUIRE(lighten<OKLCH>(OKLCH{0.5f, 0.1f, 200.f}, 0.5f) == OKLCH{0.75f, 0.05f, 200.f});
+    STATIC_REQUIRE(darken<OKLCH>(OKLCH{0.5f, 0.1f, 200.f}, 0.5f) == OKLCH{0.25f, 0.05f, 200.f});
+    STATIC_REQUIRE(lighten<OKLab>(OKLab{0.5f, 0.1f, -0.2f}, 0.5f) == OKLab{0.75f, 0.05f, -0.1f});
 
     // mix in OKLab: the midpoint of black and white is perceived middle gray
     const SRGB middle = mix<OKLab>(SRGB{0.f, 0.f, 0.f}, SRGB{1.f, 1.f, 1.f}, 0.5f);
@@ -1679,4 +1682,50 @@ TEST_CASE("Operations work in OKLab and OKLCH", "[colors][oklab]")
 
     // Linear operations default to LinSRGB for OKLab colors
     STATIC_REQUIRE(std::is_same_v<aest::colors::LinearSpaceOf<OKLCH>::type, LinSRGB>);
+}
+
+TEST_CASE("lighten and darken default to OKLCH", "[colors][operations]")
+{
+    using aest::colors::convert;
+    using aest::colors::darken;
+    using aest::colors::lighten;
+
+    // Equal amounts give equal perceived steps, whatever the hue: in HSL,
+    // yellow and blue start at the same lightness but look very different
+    const SRGB yellow   = SRGB::from_hex(0xFF'FF'00);
+    const SRGB blue     = SRGB::from_hex(0x00'00'FF);
+    const float yellowL = convert<OKLCH>(yellow).lightness();
+    const float blueL   = convert<OKLCH>(blue).lightness();
+    CHECK_THAT(convert<OKLCH>(darken(yellow, 0.5f)).lightness(), WithinAbs(yellowL * 0.5, 1e-6));
+    CHECK_THAT(convert<OKLCH>(darken(blue, 0.5f)).lightness(), WithinAbs(blueL * 0.5, 1e-6));
+
+    // The hue is kept, and 1 reaches exactly white or black
+    const SRGB red = SRGB::from_hex(0xFF'00'00);
+    CHECK_THAT(convert<OKLCH>(darken(red, 0.3f)).hue(), WithinAbs(convert<OKLCH>(red).hue(), 1e-4));
+    CHECK(lighten(red, 1.f).to_rgba() == 0xFF'FF'FF'FF);
+    CHECK(darken(red, 1.f).to_rgba() == 0x00'00'00'FF);
+    CHECK(lighten(red, 0.f).to_rgba() == red.to_rgba());
+
+    // The result keeps the input's type and alpha
+    const SRGB faded = lighten(SRGB{1.f, 0.f, 0.f, 0.5f}, 0.25f);
+    CHECK(faded.alpha() == 0.5f);
+}
+
+TEST_CASE("euclidean defaults to OKLab", "[colors][distance]")
+{
+    using aest::colors::convert;
+    using aest::colors::euclidean;
+
+    const SRGB red  = SRGB::from_hex(0xFF'00'00);
+    const SRGB blue = SRGB::from_hex(0x00'00'FF);
+    CHECK(euclidean(red, blue) == euclidean<OKLab>(red, blue));
+    CHECK_THAT(euclidean(SRGB{0.f, 0.f, 0.f}, SRGB{1.f, 1.f, 1.f}), WithinAbs(1., 1e-6));
+
+    // ΔE_OK follows the eye: in SRGB, these two pairs are the same distance
+    // apart, but the dark blues look further apart than the light greens
+    const float darkBlues   = euclidean(SRGB{0.f, 0.f, 0.2f}, SRGB{0.f, 0.f, 0.3f});
+    const float lightGreens = euclidean(SRGB{0.8f, 1.f, 0.8f}, SRGB{0.8f, 1.f, 0.7f});
+    CHECK_THAT(euclidean<SRGB>(SRGB{0.f, 0.f, 0.2f}, SRGB{0.f, 0.f, 0.3f}),
+               WithinAbs(euclidean<SRGB>(SRGB{0.8f, 1.f, 0.8f}, SRGB{0.8f, 1.f, 0.7f}), 1e-6));
+    CHECK(darkBlues > lightGreens);
 }

@@ -108,20 +108,21 @@ concept EuclideanSpace = ColorType<T> && requires(const T& color) {
  * @brief Euclidean distance between two colors.
  *
  * Both colors are converted to @p Space and the distance between their
- * channels is measured there, ignoring alpha. The default, gamma-encoded
- * SRGB, is closer to how different the colors look;
- * `euclidean<LinSRGB>(color1, color2)` measures the difference in light.
+ * channels is measured there, ignoring alpha. The default, OKLab, gives
+ * ΔE_OK, where equal distances look about equally different;
+ * `euclidean<SRGB>(color1, color2)` measures the encoded values, and
+ * `euclidean<LinSRGB>(color1, color2)` the difference in light.
  *
  * @tparam Space The color space the distance is measured in
  * @tparam Color1 Color type of @p color1
  * @tparam Color2 Color type of @p color2
  * @param[in] color1 First color
  * @param[in] color2 Second color
- * @param[in] space The working space, e.g. `in<LinSRGB>`; SRGB when omitted
- * @return The distance, in the 0-sqrt(3) range for SRGB and for LinSRGB
- *         colors without HDR values.
+ * @param[in] space The working space, e.g. `in<LinSRGB>`; OKLab when omitted
+ * @return The distance: 1 from black to white in OKLab, and in the
+ *         0-sqrt(3) range for SRGB and for LinSRGB colors without HDR values.
  */
-template <EuclideanSpace Space = SRGB, ColorType Color1, ColorType Color2>
+template <EuclideanSpace Space = OKLab, ColorType Color1, ColorType Color2>
     requires ConvertibleTo<Space, Color1> && ConvertibleTo<Space, Color2>
 float euclidean(const Color1& color1, const Color2& color2, [[maybe_unused]] In<Space> space = {})
 {

@@ -35,8 +35,8 @@ const LinSRGB lit = light * LinSRGB{0.25f, 0.5f, 0.5f}; // surface albedo
 SRGB is *display-referred*: [0, 1] is all the display can show. Converting
 to it clips every channel above 1, so keep colors in LinSRGB for as long as
 they may be brighter than white, and convert at the end. Any operation whose
-path crosses SRGB clips too: lighten() works in HSL, a child of SRGB, while
-mix() and the operators stay in linear light.
+path crosses SRGB clips too; lighten() and darken() work in OKLCH and mix()
+and the operators in linear light, so they keep HDR values.
 
 ## Compositing
 

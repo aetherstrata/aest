@@ -39,6 +39,19 @@ constexpr Space lerp_channels(const Space& from, const Space& to, const float am
                  std::lerp(from.ch3(), to.ch3(), amount),
                  std::lerp(from.alpha(), to.alpha(), amount)};
 }
+
+/**
+ * @brief How much of a color's chroma is left when its lightness moves from
+ *        @p from to @p to on a straight line toward @p end.
+ * @param[in] from The current lightness
+ * @param[in] to The new lightness
+ * @param[in] end The lightness of white or black, where chroma reaches 0
+ * @return `(to - end) / (from - end)`, or 1 when @p from is @p end.
+ */
+constexpr float chroma_scale(const float from, const float to, const float end)
+{
+    return from == end ? 1.f : (to - end) / (from - end);
+}
 } // namespace aest::colors
 
 export namespace aest::colors
@@ -47,7 +60,10 @@ export namespace aest::colors
  * @brief Reads and replaces the lightness of a color space.
  *
  * Specialize it for a color space to make it a LightnessSpace, usable with
- * lighten() and darken().
+ * lighten() and darken(). `set` receives the lightness of the end the color
+ * moves toward, 1 for white and 0 for black, so a space whose colorfulness
+ * does not vanish at those ends on its own, such as OKLCH, can shrink it on
+ * the way and reach exactly white or black.
  *
  * @tparam Space The color space.
  */
@@ -70,11 +86,18 @@ struct Lightness<BasicHSL<RGB>>
 
     /**
      * @brief Copy @p color with a new lightness.
+     *
+     * HSL reaches white at lightness 1 and black at 0 whatever the
+     * saturation, so the saturation is kept.
+     *
      * @param[in] color The color to copy
      * @param[in] lightness The new lightness in the 0-1 range
+     * @param[in] end The lightness the color moves toward, unused
      * @return The color with the same hue, saturation and alpha.
      */
-    static constexpr BasicHSL<RGB> set(const BasicHSL<RGB>& color, const float lightness)
+    static constexpr BasicHSL<RGB> set(const BasicHSL<RGB>& color,
+                                       const float lightness,
+                                       [[maybe_unused]] const float end)
     {
         return BasicHSL<RGB>{color.hue(), color.saturation(), lightness, color.alpha()};
     }
@@ -92,14 +115,18 @@ struct Lightness<OKLab>
     static constexpr float get(const OKLab& color) noexcept { return color.lightness(); }
 
     /**
-     * @brief Copy @p color with a new lightness.
+     * @brief Copy @p color with a new lightness, on the straight line toward
+     *        white or black.
      * @param[in] color The color to copy
      * @param[in] lightness The new perceived lightness
-     * @return The color with the same a, b and alpha.
+     * @param[in] end The lightness the color moves toward: 1 for white, 0 for black
+     * @return The color with a and b scaled by the same fraction as the
+     *         distance to @p end, so the hue is kept and @p end is gray.
      */
-    static constexpr OKLab set(const OKLab& color, const float lightness)
+    static constexpr OKLab set(const OKLab& color, const float lightness, const float end)
     {
-        return OKLab{lightness, color.a(), color.b(), color.alpha()};
+        const float scale = chroma_scale(color.lightness(), lightness, end);
+        return OKLab{lightness, color.a() * scale, color.b() * scale, color.alpha()};
     }
 };
 
@@ -115,14 +142,18 @@ struct Lightness<OKLCH>
     static constexpr float get(const OKLCH& color) noexcept { return color.lightness(); }
 
     /**
-     * @brief Copy @p color with a new lightness.
+     * @brief Copy @p color with a new lightness, on the straight line toward
+     *        white or black.
      * @param[in] color The color to copy
      * @param[in] lightness The new perceived lightness
-     * @return The color with the same chroma, hue and alpha.
+     * @param[in] end The lightness the color moves toward: 1 for white, 0 for black
+     * @return The color with its chroma scaled by the same fraction as the
+     *         distance to @p end, the same hue and alpha: @p end is gray.
      */
-    static constexpr OKLCH set(const OKLCH& color, const float lightness)
+    static constexpr OKLCH set(const OKLCH& color, const float lightness, const float end)
     {
-        return OKLCH{lightness, color.chroma(), color.hue(), color.alpha()};
+        return OKLCH{lightness, color.chroma() * chroma_scale(color.lightness(), lightness, end),
+                     color.hue(), color.alpha()};
     }
 };
 
@@ -134,25 +165,28 @@ struct Lightness<OKLCH>
 template <typename T>
 concept LightnessSpace = ColorType<T> && requires(const T& color, const float value) {
     { Lightness<T>::get(color) } -> std::same_as<float>;
-    { Lightness<T>::set(color, value) } -> std::same_as<T>;
+    { Lightness<T>::set(color, value, value) } -> std::same_as<T>;
 };
 
 /**
  * @brief Moves the lightness of a color a fraction of the way toward white.
  *
  * The color is converted to @p Space, its lightness `l` becomes
- * `l + (1 - l) * amount` and it is converted back, so hue, saturation and
- * alpha are kept.
+ * `l + (1 - l) * amount` and it is converted back, keeping hue and alpha.
+ * By default @p Space is OKLCH, so equal amounts make equal perceived steps
+ * for every hue: chroma shrinks by the same fraction, so the color moves on
+ * a straight line toward white and 1 gives exactly white. In HSL,
+ * `lighten<HSL>(color, amount)`, saturation is kept instead.
  *
  * @tparam Space The color space the lightness is adjusted in
  * @tparam Color The color type of the input and the result
  * @param[in] color The color to lighten
  * @param[in] amount Fraction of the distance to white, clamped to the 0-1 range:
  *            0 keeps the color, 1 gives white
- * @param[in] space The working space, e.g. `in<HSL>`; HSL when omitted
+ * @param[in] space The working space, e.g. `in<HSL>`; OKLCH when omitted
  * @return The lightened color.
  */
-template <LightnessSpace Space = HSL, ColorType Color>
+template <LightnessSpace Space = OKLCH, ColorType Color>
     requires ConvertibleTo<Space, Color> && ConvertibleTo<Color, Space>
 constexpr Color lighten(const Color& color,
                         const float amount,
@@ -161,25 +195,26 @@ constexpr Color lighten(const Color& color,
     const auto working    = convert<Space>(color);
     const float lightness = Lightness<Space>::get(working);
     return convert<Color>(
-        Lightness<Space>::set(working, lightness + (1 - lightness) * clamp(amount)));
+        Lightness<Space>::set(working, lightness + (1 - lightness) * clamp(amount), 1.f));
 }
 
 /**
  * @brief Moves the lightness of a color a fraction of the way toward black.
  *
  * The color is converted to @p Space, its lightness `l` becomes
- * `l * (1 - amount)` and it is converted back, so hue, saturation and alpha
- * are kept.
+ * `l * (1 - amount)` and it is converted back, keeping hue and alpha. By
+ * default @p Space is OKLCH, where chroma shrinks by the same fraction, so
+ * 1 gives exactly black; in HSL saturation is kept instead.
  *
  * @tparam Space The color space the lightness is adjusted in
  * @tparam Color The color type of the input and the result
  * @param[in] color The color to darken
  * @param[in] amount Fraction of the distance to black, clamped to the 0-1 range:
  *            0 keeps the color, 1 gives black
- * @param[in] space The working space, e.g. `in<HSL>`; HSL when omitted
+ * @param[in] space The working space, e.g. `in<HSL>`; OKLCH when omitted
  * @return The darkened color.
  */
-template <LightnessSpace Space = HSL, ColorType Color>
+template <LightnessSpace Space = OKLCH, ColorType Color>
     requires ConvertibleTo<Space, Color> && ConvertibleTo<Color, Space>
 constexpr Color darken(const Color& color,
                        const float amount,
@@ -187,7 +222,7 @@ constexpr Color darken(const Color& color,
 {
     const auto working = convert<Space>(color);
     return convert<Color>(
-        Lightness<Space>::set(working, Lightness<Space>::get(working) * (1 - clamp(amount))));
+        Lightness<Space>::set(working, Lightness<Space>::get(working) * (1 - clamp(amount)), 0.f));
 }
 
 /**

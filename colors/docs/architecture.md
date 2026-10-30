@@ -160,10 +160,10 @@ Each step goes through a constructor, so it clamps to the range of the
 intermediate space. HDR light is lost wherever a path crosses SRGB: LinSRGB
 values above 1 clip to 1 there. Colors outside a gamut lose their negative
 channels where a path enters its linear space from XYZ, as P3 red does in
-LinSRGB. lighten() works in HSL over SRGB by default, so it clips both HDR
-light and wider gamuts: `lighten<BasicHSL<DisplayP3>>(p3Color, t)` keeps P3
-colors. mix() and the arithmetic operators stay in linear light and keep HDR
-values. Every hop also costs some float precision: a direct
+LinSRGB. lighten() and darken() work in OKLCH, which is unclamped, so the
+step to it keeps HDR light and wide gamuts; the result clips only if it
+falls outside the input's own range when converted back. mix() and the
+arithmetic operators stay in linear light and keep HDR values. Every hop also costs some float precision: a direct
 shortcut is worth adding when a pair is converted often.
 
 ## Operations
@@ -185,7 +185,11 @@ spaces where the operation has no meaning, such as Euclidean distance over a
 hue angle.
 
 The defaults are part of the API: they never change silently, because the
-same call would start giving different colors. mix() and over() default to
+same call would start giving different colors. The operations that judge
+colors by eye default to the perceptual spaces: lighten() and darken() to
+OKLCH, euclidean() to OKLab. The aest::colors::Lightness trait passes the
+end a color moves toward, white or black, to `set`, so OKLCH and OKLab can
+shrink chroma on the way and reach that end exactly; HSL ignores it. mix() and over() default to
 `void`, which aest::colors::LinearSpaceOf resolves to linear light in the
 input's own gamut, so a default never clips a wide-gamut color to sRGB. A
 default template argument cannot name a later parameter, so `void` stands in

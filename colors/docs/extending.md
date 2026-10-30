@@ -31,6 +31,10 @@ Recipes for adding to `aest.colors`, inside the library or from user code.
 5. **Support operations** by specializing their traits: aest::colors::Lightness
    if the space has a lightness axis, aest::colors::Interpolation if its
    channels blend, aest::colors::Euclidean if they are Cartesian coordinates.
+   Lightness has `get(color)` and `set(color, lightness, end)`, where `end`
+   is the lightness of white (1) or black (0) the color is moving toward:
+   use it to shrink the colorfulness when the space does not reach gray at
+   those lightnesses on its own, as OKLCH does, or ignore it, as HSL does.
 
 Specializations must be visible before the first conversion that uses them:
 concepts such as aest::colors::ConvertibleTo are evaluated once per

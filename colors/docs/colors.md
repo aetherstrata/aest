@@ -111,11 +111,22 @@ aest::colors::in tag, as in `lighten(color, 0.2f, in<HSL>)`, which is the
 same call. The result has the input's type. A space supports an operation by
 specializing the operation's trait.
 
-| Operation                                       | Does                                                                                          | Default space                     | Trait                       |
-|-------------------------------------------------|-----------------------------------------------------------------------------------------------|-----------------------------------|-----------------------------|
-| aest::colors::lighten(), aest::colors::darken() | Move lightness a fraction of the way toward white or black, keeping hue, saturation and alpha | HSL                               | aest::colors::Lightness     |
-| aest::colors::mix()                             | Blend two colors, alpha included: 0 gives the first, 1 the second                             | Linear light in the input's gamut | aest::colors::Interpolation |
-| aest::colors::euclidean()                       | Distance between two colors, ignoring alpha                                                   | SRGB                              | aest::colors::Euclidean     |
+| Operation                                       | Does                                                                    | Default space                     | Trait                       |
+|-------------------------------------------------|-------------------------------------------------------------------------|-----------------------------------|-----------------------------|
+| aest::colors::lighten(), aest::colors::darken() | Move a fraction of the way toward white or black, keeping hue and alpha | OKLCH                             | aest::colors::Lightness     |
+| aest::colors::mix()                             | Blend two colors, alpha included: 0 gives the first, 1 the second       | Linear light in the input's gamut | aest::colors::Interpolation |
+| aest::colors::euclidean()                       | Distance between two colors, ignoring alpha: ΔE_OK by default           | OKLab                             | aest::colors::Euclidean     |
+
+lighten() and darken() work in OKLCH, so equal amounts give equal perceived
+steps whatever the hue: in HSL, yellow and blue at the same lightness look
+far apart. Chroma shrinks by the same fraction as the distance to white or
+black, so the color moves in a straight line toward it, keeps its hue, and
+an amount of 1 gives exactly white or black. `lighten<HSL>(color, amount)`
+keeps the saturation instead. euclidean() measures ΔE_OK, the difference in
+OKLab, where equal distances look about equally different; about 0.02 is
+just noticeable. These defaults need `std::cbrt`, so they run at run time;
+the HSL and RGB ones stay `constexpr`. Results in OKLCH and OKLab can fall
+outside the input's gamut and clip when converted back.
 
 mix() blends in the aest::colors::LinearSpaceOf its color type: LinSRGB for
 SRGB and HSL, LinDisplayP3 for DisplayP3 and `BasicHSL<DisplayP3>`, XYZ for
