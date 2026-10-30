@@ -291,8 +291,8 @@ public:
      * @return The blue channel value, in the range of @p Transfer
      */
     [[nodiscard]] constexpr float blue() const noexcept { return this->_ch3; }
-    ///@}
 
+    ///@}
     ///@name Bytes and hex codes (SRGB only)
     ///@{
     /**
@@ -388,40 +388,6 @@ public:
 };
 
 /**
- * @brief sRGB with gamma-encoded channels: the encoding of hex codes, 8-bit
- *        channels and CSS colors.
- *
- * Convert it to LinSRGB with convert() before blending or other color math.
- */
-export using SRGB = BasicRGB<gamut::SRGB, tf::SRGB>;
-
-/**
- * @brief Linear sRGB: the sRGB primaries without the gamma encoding, so
- *        channels are proportional to light and can exceed 1 for HDR values.
- */
-export using LinSRGB = BasicRGB<gamut::SRGB, tf::Linear>;
-
-/** @brief Display P3: the P3 primaries with the sRGB transfer function, as on Apple displays and in
- * CSS. */
-export using DisplayP3 = BasicRGB<gamut::DisplayP3, tf::SRGB>;
-
-/** @brief Linear Display P3. */
-export using LinDisplayP3 = BasicRGB<gamut::DisplayP3, tf::Linear>;
-
-/** @brief Linear Rec. 2020, the gamut of UHD and HDR video. */
-export using LinRec2020 = BasicRGB<gamut::Rec2020, tf::Linear>;
-
-/** @brief ACEScg: linear AP1, the working space of ACES rendering and compositing. */
-export using ACEScg = BasicRGB<gamut::AP1, tf::Linear>;
-
-/** @brief Rec. 2100 PQ: Rec. 2020 primaries with the PQ signal of HDR10, linear 1.0 at 203 cd/m².
- */
-export using Rec2100PQ = BasicRGB<gamut::Rec2020, tf::PQ>;
-
-/** @brief Rec. 2100 HLG: Rec. 2020 primaries with the HLG signal, linear 1.0 at 75%. */
-export using Rec2100HLG = BasicRGB<gamut::Rec2020, tf::HLG>;
-
-/**
  * @brief The gamut and transfer function of a BasicRGB space; empty for other types.
  * @tparam T The type to inspect
  */
@@ -440,28 +406,62 @@ struct RGBParts<BasicRGB<Gamut, Transfer>>
     using GamutTag    = Gamut;    ///< The gamut tag.
     using TransferTag = Transfer; ///< The transfer function tag.
 };
+} // namespace aest::colors
+
+export namespace aest::colors
+{
+/**
+ * @brief sRGB with gamma-encoded channels: the encoding of hex codes, 8-bit
+ *        channels and CSS colors.
+ *
+ * Convert it to LinSRGB with convert() before blending or other color math.
+ */
+using SRGB = BasicRGB<gamut::SRGB, tf::SRGB>;
+
+/**
+ * @brief Linear sRGB: the sRGB primaries without the gamma encoding, so
+ *        channels are proportional to light and can exceed 1 for HDR values.
+ */
+using LinSRGB = BasicRGB<gamut::SRGB, tf::Linear>;
+
+/// Display P3: the P3 primaries with the sRGB transfer function, as on Apple displays and in CSS
+using DisplayP3 = BasicRGB<gamut::DisplayP3, tf::SRGB>;
+
+/// Linear Display P3
+using LinDisplayP3 = BasicRGB<gamut::DisplayP3, tf::Linear>;
+
+/// Linear Rec. 2020, the gamut of UHD and HDR video
+using LinRec2020 = BasicRGB<gamut::Rec2020, tf::Linear>;
+
+/// ACEScg: linear AP1, the working space of ACES rendering and compositing
+using ACEScg = BasicRGB<gamut::AP1, tf::Linear>;
+
+/// Rec.2100 PQ: Rec. 2020 primaries with the PQ signal of HDR10, linear 1.0 at 203 cd/m²
+using Rec2100PQ = BasicRGB<gamut::Rec2020, tf::PQ>;
+
+/// Rec.2100 HLG: Rec. 2020 primaries with the HLG signal, linear 1.0 at 75%
+using Rec2100HLG = BasicRGB<gamut::Rec2020, tf::HLG>;
 
 /**
  * @brief Any BasicRGB color space.
  * @tparam T The type to check
  */
-export template <typename T>
+template <typename T>
 concept RGBSpace = requires { typename RGBParts<T>::TransferTag; };
 
 /**
  * @brief A BasicRGB space with linear channels, tf::Linear.
  * @tparam T The type to check
  */
-export template <typename T>
+template <typename T>
 concept LinearRGBSpace = RGBSpace<T> && std::same_as<typename RGBParts<T>::TransferTag, tf::Linear>;
 
 /**
- * @brief A BasicRGB space with an SDR encoding: channels in the 0-1 range,
- *        relative to the display's white. Linear spaces and HDR signals such
- *        as PQ are left out.
+ * @brief A BasicRGB space with an SDR encoding: channels in the 0-1 range, relative to the
+ *        display's white. Linear spaces and HDR signals such as PQ are left out.
  * @tparam T The type to check
  */
-export template <typename T>
-concept BoundedRGBSpace =
-    RGBSpace<T> && !LinearRGBSpace<T> && !HDRTransfer<typename RGBParts<T>::TransferTag>;
+template <typename T>
+concept BoundedRGBSpace = RGBSpace<T> && !LinearRGBSpace<T>
+                       && !aest::colors::HDRTransfer<typename RGBParts<T>::TransferTag>;
 } // namespace aest::colors
