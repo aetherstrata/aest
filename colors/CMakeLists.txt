@@ -6,8 +6,10 @@ aest_add_library(colors
         src/Distance.cppm
         src/NamedColors.cppm
         src/Format.cppm
+        src/Gamut.cppm
         src/Operations.cppm
         src/Space.cppm
+    DEPENDS aest::blas
 )
 
 add_subdirectory(tests)

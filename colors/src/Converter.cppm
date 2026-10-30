@@ -6,6 +6,7 @@
  */
 module;
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <concepts>
 #include <cstdint>
@@ -13,7 +14,9 @@ module;
 #include <type_traits>
 export module aest.colors:converter;
 
+import aest.blas;
 import :color;
+import :gamut;
 
 namespace aest::colors
 {
@@ -296,7 +299,15 @@ struct Converter<ColorOut, ColorIn>
     static constexpr auto convert(const ColorIn& color) -> ColorOut { return color; }
 };
 
-/** @brief SRGB converts through LinSRGB, the root of the conversion tree. */
+/** @brief LinSRGB converts through XYZ, the root of the conversion tree. */
+template <>
+struct ParentSpace<LinSRGB>
+{
+    /** @brief The parent space. */
+    using type = XYZ;
+};
+
+/** @brief SRGB converts through LinSRGB. */
 template <>
 struct ParentSpace<SRGB>
 {
@@ -505,6 +516,42 @@ struct Converter<SRGB, LinSRGB>
     {
         return SRGB{linear_to_srgb(color.red()), linear_to_srgb(color.green()),
                     linear_to_srgb(color.blue()), color.alpha()};
+    }
+};
+
+/** @brief Converts linear sRGB to XYZ with the matrix of its primaries. */
+template <>
+struct Converter<XYZ, LinSRGB>
+{
+    /**
+     * @brief Converts @p color to XYZ.
+     * @param[in] color The color to convert
+     * @return The same color in XYZ, with the same alpha
+     */
+    static constexpr XYZ convert(const LinSRGB& color)
+    {
+        const Vector3 xyz =
+            blas::multiply(LIN_SRGB_TO_XYZ, {color.red(), color.green(), color.blue()});
+        return XYZ{static_cast<float>(xyz[0]), static_cast<float>(xyz[1]),
+                   static_cast<float>(xyz[2]), color.alpha()};
+    }
+};
+
+/** @brief Converts XYZ to linear sRGB, clipping colors outside the gamut at 0. */
+template <>
+struct Converter<LinSRGB, XYZ>
+{
+    /**
+     * @brief Converts @p color to linear sRGB.
+     * @param[in] color The color to convert
+     * @return The same color in linear sRGB, with the same alpha; channels a
+     *         color outside the sRGB gamut would need below 0 are 0
+     */
+    static constexpr LinSRGB convert(const XYZ& color)
+    {
+        const Vector3 rgb = blas::multiply(XYZ_TO_LIN_SRGB, {color.x(), color.y(), color.z()});
+        return LinSRGB{static_cast<float>(rgb[0]), static_cast<float>(rgb[1]),
+                       static_cast<float>(rgb[2]), color.alpha()};
     }
 };
 

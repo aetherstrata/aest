@@ -542,6 +542,62 @@ public:
 };
 
 /**
+ * @brief A color in the CIE 1931 XYZ color space, relative to the D65 white
+ * point.
+ *
+ * XYZ describes any color the eye can see, independently of a display's
+ * primaries, and links the RGB gamuts: it is the root of the conversion tree.
+ * Y is the relative luminance, so the white of LinSRGB is
+ * `(0.9505, 1, 1.0891)`. Channels are not clamped: XYZ itself has no bounds,
+ * and colors outside a gamut clip only when converted to it. Like LinSRGB, it
+ * is linear in light, so it has the arithmetic operators.
+ */
+export class XYZ final : public ColorBase<XYZ>, public ColorArithmetic<XYZ>
+{
+public:
+    /** @brief Color space name, used by the std::formatter specialization. */
+    static constexpr std::string_view TYPE = "XYZ";
+
+    /** @brief Default constructor initializes the color to opaque black (0, 0, 0, 1). */
+    constexpr XYZ()
+        : ColorBase(1.0f, 0.0f, 0.0f, 0.0f)
+    {}
+
+    /**
+     * @brief Construct a color from XYZ tristimulus values and alpha.
+     * @param[in] x X tristimulus value, stored as is
+     * @param[in] y Y tristimulus value, the relative luminance, stored as is
+     * @param[in] z Z tristimulus value, stored as is
+     * @param[in] a Alpha channel value (default 1.0)
+     * @pre Every channel is finite: NaN and infinities are undefined behavior.
+     */
+    constexpr XYZ(const float x, const float y, const float z, const float a = 1.0f)
+        : ColorBase(a, x, y, z)
+    {}
+
+    ///@name Color Channels
+    ///@{
+    /**
+     * @brief Get the X tristimulus value.
+     * @return The X value
+     */
+    [[nodiscard]] constexpr float x() const noexcept { return _ch1; }
+
+    /**
+     * @brief Get the Y tristimulus value, the relative luminance.
+     * @return The Y value
+     */
+    [[nodiscard]] constexpr float y() const noexcept { return _ch2; }
+
+    /**
+     * @brief Get the Z tristimulus value.
+     * @return The Z value
+     */
+    [[nodiscard]] constexpr float z() const noexcept { return _ch3; }
+    ///@}
+};
+
+/**
  * @brief A color as hue, saturation and lightness, over sRGB.
  *
  * The hue is wrapped to the [0, 360) range; saturation and lightness are

@@ -12,5 +12,6 @@ export import :converter;
 export import :distance;
 export import :named_colors;
 export import :format;
+export import :gamut;
 export import :operations;
 export import :space;

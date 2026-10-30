@@ -11,6 +11,9 @@
   SRGB holds gamma-encoded sRGB (hex codes, bytes, CSS); LinSRGB holds the
   same primaries without the gamma, so its channels are proportional to light
   and can exceed 1 for HDR values.
+- aest::colors::XYZ — CIE 1931 XYZ relative to D65, independent of any
+  display's primaries: the root of the conversion tree. Y is the relative
+  luminance, and the channels are not clamped.
 - aest::colors::Premultiplied — a linear color with premultiplied alpha, such
   as `Premultiplied<LinSRGB>`, for compositing.
 - aest::colors::SRGB::from_hex(), aest::colors::SRGB::from_rgba(),
@@ -27,7 +30,9 @@
 ## Conversions
 
 aest::colors::convert() converts between any two of SRGB, LinSRGB, HSL,
-HSV and `Premultiplied<LinSRGB>`, keeping alpha. Pairs with an
+HSV, XYZ and `Premultiplied<LinSRGB>`, keeping alpha. LinSRGB ↔ XYZ uses a
+matrix derived at compile time from the sRGB chromaticities, so it matches
+IEC 61966-2-1; XYZ colors outside the sRGB gamut clip at 0 in LinSRGB. Pairs with an
 aest::colors::Converter specialization convert directly; the others go
 through the conversion tree declared by aest::colors::ParentSpace (see
 @ref colors_architecture). Converting a color to its own type returns it

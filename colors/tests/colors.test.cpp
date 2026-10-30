@@ -865,3 +865,93 @@ TEST_CASE("contrast_ratio follows WCAG 2.x", "[colors][operations]")
     // Mixed types, and HDR colors clip to white as a display shows them
     CHECK_THAT(contrast_ratio(HSL{0.f, 0.f, 0.f}, LinSRGB{4.f, 4.f, 4.f}), WithinAbs(21., 1e-5));
 }
+
+namespace
+{
+using aest::colors::XYZ;
+
+/**
+ * @brief Checks the channels of @p color against expected XYZ values.
+ * @param[in] color The color to check
+ * @param[in] x Expected X
+ * @param[in] y Expected Y
+ * @param[in] z Expected Z
+ * @param[in] margin Tolerance of each channel
+ */
+void check_xyz(
+    const XYZ& color, const double x, const double y, const double z, const double margin)
+{
+    CHECK_THAT(color.x(), WithinAbs(x, margin));
+    CHECK_THAT(color.y(), WithinAbs(y, margin));
+    CHECK_THAT(color.z(), WithinAbs(z, margin));
+}
+} // namespace
+
+TEST_CASE("XYZ is unclamped and linear", "[colors][xyz]")
+{
+    constexpr XYZ color{-0.25f, 2.f, 0.5f, 0.75f};
+    STATIC_REQUIRE(color.x() == -0.25f);
+    STATIC_REQUIRE(color.y() == 2.f);
+    STATIC_REQUIRE(color.z() == 0.5f);
+    STATIC_REQUIRE(XYZ{} == XYZ{0.f, 0.f, 0.f, 1.f});
+    STATIC_REQUIRE(color * 2.f == XYZ{-0.5f, 4.f, 1.f, 0.75f});
+    STATIC_REQUIRE(aest::colors::LinearSpace<XYZ>);
+}
+
+TEST_CASE("LinSRGB converts to XYZ with the IEC 61966-2-1 matrix", "[colors][xyz]")
+{
+    using aest::colors::convert;
+
+    // The columns of the matrix derived from the sRGB chromaticities match the
+    // four-decimal table of IEC 61966-2-1
+    check_xyz(convert<XYZ>(LinSRGB{1.f, 0.f, 0.f}), 0.4124, 0.2126, 0.0193, 1e-4);
+    check_xyz(convert<XYZ>(LinSRGB{0.f, 1.f, 0.f}), 0.3576, 0.7152, 0.1192, 1e-4);
+    check_xyz(convert<XYZ>(LinSRGB{0.f, 0.f, 1.f}), 0.1805, 0.0722, 0.9505, 1e-4);
+
+    // White maps to the D65 white point at Y = 1
+    check_xyz(convert<XYZ>(LinSRGB{1.f, 1.f, 1.f}), 0.950456, 1., 1.089058, 1e-6);
+
+    STATIC_REQUIRE(convert<XYZ>(LinSRGB{0.f, 0.f, 0.f, 0.5f}) == XYZ{0.f, 0.f, 0.f, 0.5f});
+    STATIC_REQUIRE(convert<XYZ>(LinSRGB{1.f, 1.f, 1.f}).y() > 0.99999f);
+}
+
+TEST_CASE("XYZ round-trips through LinSRGB, HDR values included", "[colors][xyz]")
+{
+    using aest::colors::convert;
+
+    for (const LinSRGB color : {LinSRGB{0.25f, 0.5f, 0.75f, 0.5f}, LinSRGB{4.f, 0.f, 1.5f}})
+    {
+        const LinSRGB back = convert<LinSRGB>(convert<XYZ>(color));
+        CHECK_THAT(back.red(), WithinAbs(color.red(), 1e-5));
+        CHECK_THAT(back.green(), WithinAbs(color.green(), 1e-5));
+        CHECK_THAT(back.blue(), WithinAbs(color.blue(), 1e-5));
+        CHECK(back.alpha() == color.alpha());
+    }
+}
+
+TEST_CASE("XYZ outside the sRGB gamut clips at 0 in LinSRGB", "[colors][xyz]")
+{
+    // Pure Y has no sRGB mix: red and blue would be negative
+    const LinSRGB clipped = aest::colors::convert<LinSRGB>(XYZ{0.f, 1.f, 0.f});
+    CHECK(clipped.red() == 0.f);
+    CHECK_THAT(clipped.green(), WithinAbs(1.875968, 1e-5));
+    CHECK(clipped.blue() == 0.f);
+}
+
+TEST_CASE("XYZ is the root of the conversion tree", "[colors][xyz]")
+{
+    using aest::colors::convert;
+    using aest::colors::ConvertibleTo;
+
+    STATIC_REQUIRE(ConvertibleTo<XYZ, HSL>);
+    STATIC_REQUIRE(ConvertibleTo<HSV, XYZ>);
+    STATIC_REQUIRE(ConvertibleTo<XYZ, aest::colors::Premultiplied<LinSRGB>>);
+    STATIC_REQUIRE_FALSE(ConvertibleTo<XYZ, Gray>);
+
+    // HSL and HSV still convert through SRGB, without a round-trip through XYZ
+    STATIC_REQUIRE(convert<HSV>(HSL{210.f, 0.5f, 0.5f}).hue() == 210.f);
+
+    const XYZ white = convert<XYZ>(SRGB::from_hex(0xFF'FF'FF));
+    CHECK_THAT(white.y(), WithinAbs(1., 1e-6));
+    CHECK(std::format("{:.2f}", XYZ{0.5f, 1.f, 0.25f}) == "XYZ(0.50, 1.00, 0.25, 1.00)");
+}

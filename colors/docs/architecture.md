@@ -22,8 +22,8 @@ one is expected, and the conversion between them is always explicit.
   four-channel constructor. A type outside the library can satisfy it.
 - Mixins add behavior only where it is meaningful.
   aest::colors::ColorArithmetic gives `+`, `-` and `*` between colors and
-  scaling by a scalar, and only LinSRGB inherits it: adding gamma-encoded
-  values or hues has no physical meaning. The spaces that inherit it are the
+  scaling by a scalar, and only LinSRGB and XYZ inherit it: adding
+  gamma-encoded values or hues has no physical meaning. The spaces that inherit it are the
   aest::colors::LinearSpace ones.
 - aest::colors::Premultiplied wraps a linear space with premultiplied alpha.
   Its own operators, `+` and scaling by a scalar, apply to all four
@@ -31,11 +31,12 @@ one is expected, and the conversion between them is always explicit.
 
 ### Families of color spaces
 
-| Family  | Spaces                            | Channels                                                              |
-|---------|-----------------------------------|-----------------------------------------------------------------------|
-| Encoded | SRGB                              | sRGB with its transfer function: hex codes, bytes, CSS                |
-| Linear  | LinSRGB, `Premultiplied<LinSRGB>` | Proportional to light: blending, lighting and compositing belong here |
-| Derived | HSL, HSV                          | Cylindrical views of sRGB, for picking and adjusting colors           |
+| Family   | Spaces                            | Channels                                                                  |
+|----------|-----------------------------------|---------------------------------------------------------------------------|
+| Encoded  | SRGB                              | sRGB with its transfer function: hex codes, bytes, CSS                    |
+| Linear   | LinSRGB, `Premultiplied<LinSRGB>` | Proportional to light: blending, lighting and compositing belong here     |
+| Derived  | HSL, HSV                          | Cylindrical views of sRGB, for picking and adjusting colors               |
+| Absolute | XYZ                               | CIE 1931 tristimulus values, independent of any display: links the gamuts |
 
 ### Ranges
 
@@ -48,6 +49,7 @@ value of a color type is always valid for that space.
 | LinSRGB            | Clamped at 0, unbounded above: values over 1 are HDR light             | [0, 1] |
 | `Premultiplied<S>` | Clamped like S                                                         | [0, 1] |
 | HSL, HSV           | Hue wrapped to [0, 360); saturation, lightness/value clamped to [0, 1] | [0, 1] |
+| XYZ                | Unclamped: colors outside a gamut clip only when converted to it       | [0, 1] |
 
 Channels must be finite: NaN and infinities are a precondition violation,
 not a value the constructors repair.
@@ -72,11 +74,12 @@ form a tree, declared by aest::colors::ParentSpace, and each space provides
 aest::colors::Converter specializations to and from its parent:
 
 ```
-LinSRGB                    root
-├── Premultiplied<LinSRGB> channels times alpha
-└── SRGB                   sRGB transfer function
-    ├── HSL                hue, saturation, lightness
-    └── HSV                hue, saturation, value
+XYZ                            root, CIE 1931 relative to D65
+└── LinSRGB                    sRGB primaries matrix
+    ├── Premultiplied<LinSRGB> channels times alpha
+    └── SRGB                   sRGB transfer function
+        ├── HSL                hue, saturation, lightness
+        └── HSV                hue, saturation, value
 ```
 
 A conversion takes one of two routes:
@@ -96,7 +99,8 @@ outside the tree is rejected when the call is resolved.
 
 Each step goes through a constructor, so it clamps to the range of the
 intermediate space. HDR light is lost wherever a path crosses SRGB: LinSRGB
-values above 1 clip to 1 there. lighten() of a LinSRGB color works in HSL,
+values above 1 clip to 1 there. Colors outside the sRGB gamut lose their
+negative channels where a path enters LinSRGB from XYZ. lighten() of a LinSRGB color works in HSL,
 so it clips them too, while mix() and the arithmetic operators stay in
 LinSRGB and keep them. Every hop also costs some float precision: a direct
 shortcut is worth adding when a pair is converted often.
@@ -135,6 +139,7 @@ and MSVC.
 | lighten(), darken() and mix() when no step needs `<cmath>`  | Anything through LinSRGB       |
 | Premultiplied conversions, over() of linear colors          | contrast_ratio() (`std::pow`)  |
 | luminance() of linear colors                                |                                |
+| LinSRGB ↔ XYZ (matrices derived at compile time)            |                                |
 
 A function marked `constexpr` whose path reaches a run-time step simply
 cannot be used in a constant expression for those arguments: mix() of two
