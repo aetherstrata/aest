@@ -16,7 +16,7 @@ import :converter;
 import :gamut;
 import :space;
 
-export namespace aest::colors
+namespace aest::colors
 {
 /**
  * @brief A color space whose channels are proportional to light, so that
@@ -26,7 +26,7 @@ export namespace aest::colors
  *
  * @tparam T The type to check
  */
-template <typename T>
+export template <typename T>
 concept LinearSpace = ColorType<T> && std::derived_from<T, ColorArithmetic<T>>;
 
 /**
@@ -41,7 +41,7 @@ concept LinearSpace = ColorType<T> && std::derived_from<T, ColorArithmetic<T>>;
  *
  * @tparam Space The linear color space of the channels, such as LinSRGB
  */
-template <LinearSpace Space>
+export template <LinearSpace Space>
 class Premultiplied final : public ColorBase<Premultiplied<Space>>
 {
     /** @brief Beginning of the space name, before the name of @p Space. */
@@ -232,7 +232,7 @@ struct LinearSpaceOf<Premultiplied<Space>>
  *            @p Background when omitted
  * @return The composited color, in the type of @p background.
  */
-template <typename Space = void, ColorType Foreground, ColorType Background>
+export template <typename Space = void, ColorType Foreground, ColorType Background>
     requires LinearSpace<WorkingSpace<Space, Background>>
           && ConvertibleTo<Premultiplied<WorkingSpace<Space, Background>>, Foreground>
           && ConvertibleTo<Premultiplied<WorkingSpace<Space, Background>>, Background>

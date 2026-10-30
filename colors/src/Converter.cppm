@@ -99,10 +99,7 @@ constexpr RGB rgb_from_hue(const float hue,
 
     return RGB{r + offset, g + offset, b + offset, alpha};
 }
-} // namespace aest::colors
 
-export namespace aest::colors
-{
 /**
  * @brief Converts colors from one color space to another.
  *
@@ -118,7 +115,7 @@ export namespace aest::colors
  * @tparam ColorOut The desired output color space.
  * @tparam ColorIn The input color space.
  */
-template <ColorType ColorOut, ColorType ColorIn>
+export template <ColorType ColorOut, ColorType ColorIn>
 struct Converter;
 
 /**
@@ -131,12 +128,9 @@ struct Converter;
  *
  * @tparam Space The color space.
  */
-template <ColorType Space>
+export template <ColorType Space>
 struct ParentSpace;
-} // namespace aest::colors
 
-namespace aest::colors
-{
 /**
  * @brief A color space with a parent in the conversion tree.
  * @tparam T The type to check
@@ -240,17 +234,14 @@ constexpr Descendant descend(const Space& color)
         return Converter<Descendant, Parent>::convert(descend<Parent>(color));
     }
 }
-} // namespace aest::colors
 
-export namespace aest::colors
-{
 /**
  * @brief A color space that convert() can convert @p ColorIn to: directly
  *        through a Converter, or along the conversion tree.
  * @tparam ColorOut The output color space
  * @tparam ColorIn The input color space
  */
-template <typename ColorOut, typename ColorIn>
+export template <typename ColorOut, typename ColorIn>
 concept ConvertibleTo =
     ColorType<ColorOut> && ColorType<ColorIn> && (DirectConverter<ColorOut, ColorIn> || requires {
         typename CommonAncestor<ColorIn, ColorOut>::type;
@@ -269,7 +260,7 @@ concept ConvertibleTo =
  * @param[in] color The color to convert
  * @return A new color representing the input value in another color space
  */
-template <ColorType ColorOut, ColorType ColorIn>
+export template <ColorType ColorOut, ColorType ColorIn>
     requires ConvertibleTo<ColorOut, ColorIn>
 constexpr ColorOut convert(const ColorIn& color)
 {
@@ -572,5 +563,4 @@ struct Converter<BasicRGB<Gamut, tf::Linear>, XYZ>
                 color.alpha()};
     }
 };
-
 } // namespace aest::colors

@@ -14,6 +14,7 @@ import :color;
 import :converter;
 import :gamut;
 
+/** @brief Tonemapping operators, from HDR linear light to the 0-1 range of a display. */
 namespace aest::colors::tonemap
 {
 /**
@@ -47,11 +48,7 @@ constexpr double rrt_and_odt_fit(const double value)
     const double denominator = value * (0.983729 * value + 0.4329510) + 0.238081;
     return numerator / denominator;
 }
-} // namespace aest::colors::tonemap
 
-/** @brief Tonemapping operators, from HDR linear light to the 0-1 range of a display. */
-export namespace aest::colors::tonemap
-{
 /**
  * @brief Reinhard tonemapping, `c / (1 + c)` on each channel.
  *
@@ -63,7 +60,7 @@ export namespace aest::colors::tonemap
  * @param[in] color The HDR color
  * @return The tonemapped color, every channel in [0, 1).
  */
-template <LinearRGBSpace Color>
+export template <LinearRGBSpace Color>
 constexpr Color reinhard(const Color& color)
 {
     return Color{color.red() / (1 + color.red()), color.green() / (1 + color.green()),
@@ -84,7 +81,7 @@ constexpr Color reinhard(const Color& color)
  * @return The tonemapped color.
  * @pre @p white is greater than 0.
  */
-template <LinearRGBSpace Color>
+export template <LinearRGBSpace Color>
 constexpr Color reinhard_extended(const Color& color, const float white)
 {
     const float whiteSquared = white * white;
@@ -107,7 +104,7 @@ constexpr Color reinhard_extended(const Color& color, const float white)
  * @param[in] color The HDR color
  * @return The tonemapped color, in the sRGB gamut with channels in [0, 1].
  */
-template <LinearRGBSpace Color>
+export template <LinearRGBSpace Color>
 constexpr Color aces_fitted(const Color& color)
 {
     const LinSRGB linear = convert<LinSRGB>(color);

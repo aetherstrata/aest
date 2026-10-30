@@ -15,7 +15,7 @@ import :cylindrical;
 import :gamut;
 import :transfer;
 
-export namespace aest::colors
+namespace aest::colors
 {
 /**
  * @brief Tag naming the color space an operation works in.
@@ -25,7 +25,7 @@ export namespace aest::colors
  *
  * @tparam Space The color space, or `void` for the input's default.
  */
-template <typename Space>
+export template <typename Space>
 struct In
 {};
 
@@ -34,7 +34,7 @@ struct In
  * `lighten(color, 0.2f, in<HSL>)`.
  * @tparam Space The color space.
  */
-template <ColorType Space>
+export template <ColorType Space>
 inline constexpr In<Space> in{};
 
 /**
@@ -48,7 +48,7 @@ inline constexpr In<Space> in{};
  *
  * @tparam Color The color type
  */
-template <ColorType Color>
+export template <ColorType Color>
 struct LinearSpaceOf
 {
     /** @brief The linear space. */
@@ -96,10 +96,7 @@ struct LinearSpaceOf<XYZ>
     /** @brief The linear space. */
     using type = XYZ;
 };
-} // namespace aest::colors
 
-namespace aest::colors
-{
 /**
  * @brief The working space of an operation that follows its input: @p Space
  *        when given, the LinearSpaceOf @p Color when it is `void`.

@@ -21,13 +21,13 @@ import aest.blas;
 import :color;
 import :transfer;
 
-export namespace aest::colors
+namespace aest::colors
 {
 /** @brief CIE 1931 xy chromaticity coordinates of a primary or white point. */
-using Chromaticity = std::array<double, 2>;
+export using Chromaticity = std::array<double, 2>;
 
 /** @brief Chromaticity of the D65 white point, as sRGB defines it: the white of XYZ. */
-inline constexpr Chromaticity D65 = {0.3127, 0.3290};
+export inline constexpr Chromaticity D65 = {0.3127, 0.3290};
 
 /**
  * @brief A gamut tag, the first parameter of BasicRGB.
@@ -40,7 +40,7 @@ inline constexpr Chromaticity D65 = {0.3127, 0.3290};
  *
  * @tparam T The type to check
  */
-template <typename T>
+export template <typename T>
 concept RGBGamut = requires {
     { T::NAME } -> std::convertible_to<std::string_view>;
     { T::RED } -> std::convertible_to<Chromaticity>;
@@ -48,10 +48,9 @@ concept RGBGamut = requires {
     { T::BLUE } -> std::convertible_to<Chromaticity>;
     { T::WHITE } -> std::convertible_to<Chromaticity>;
 };
-} // namespace aest::colors
 
 /** @brief Gamut tags, the first parameter of BasicRGB. */
-export namespace aest::colors::gamut
+export namespace gamut
 {
 /** @brief The sRGB and Rec. 709 primaries, D65 white, from IEC 61966-2-1. */
 struct SRGB
@@ -95,10 +94,8 @@ struct AP1
     static constexpr Chromaticity BLUE     = {0.128, 0.044};     ///< Blue primary.
     static constexpr Chromaticity WHITE    = {0.32168, 0.33767}; ///< White point.
 };
-} // namespace aest::colors::gamut
+} // namespace gamut
 
-namespace aest::colors
-{
 /** @brief A column of three values, such as XYZ or linear RGB channels. */
 using Vector3 = blas::Vector<double, 3>;
 
@@ -197,10 +194,7 @@ inline constexpr Matrix3 XYZ_TO_RGB = blas::inverse(RGB_TO_XYZ<Gamut>);
 template <RGBGamut Gamut, TransferFunction Transfer>
 inline constexpr auto RGB_NAME_CHARS =
     join_names<Transfer::PREFIX.size() + Gamut::NAME.size()>({Transfer::PREFIX, Gamut::NAME});
-} // namespace aest::colors
 
-export namespace aest::colors
-{
 /**
  * @brief Name of the BasicRGB space of a gamut and a transfer function,
  *        printed by `std::format`.
@@ -211,7 +205,7 @@ export namespace aest::colors
  * @tparam Gamut The gamut tag
  * @tparam Transfer The transfer function tag
  */
-template <RGBGamut Gamut, TransferFunction Transfer>
+export template <RGBGamut Gamut, TransferFunction Transfer>
 inline constexpr std::string_view RGB_NAME{RGB_NAME_CHARS<Gamut, Transfer>.data(),
                                            RGB_NAME_CHARS<Gamut, Transfer>.size()};
 
@@ -226,17 +220,11 @@ inline constexpr std::string_view RGB_NAME<gamut::Rec2020, tf::PQ> = "Rec2100PQ"
 /** @brief Rec. 2020 with HLG is the HLG space of Rec. 2100. */
 template <>
 inline constexpr std::string_view RGB_NAME<gamut::Rec2020, tf::HLG> = "Rec2100HLG";
-} // namespace aest::colors
 
-namespace aest::colors
-{
 /** @brief Empty base standing in for ColorArithmetic in encoded RGB spaces. */
 struct NoArithmetic
 {};
-} // namespace aest::colors
 
-export namespace aest::colors
-{
 /**
  * @brief A color in an RGB color space: the primaries and white point of
  *        @p Gamut, with channels encoded by @p Transfer.
@@ -253,7 +241,7 @@ export namespace aest::colors
  * @tparam Gamut The gamut tag, such as gamut::SRGB
  * @tparam Transfer The transfer function tag, such as tf::SRGB or tf::Linear
  */
-template <RGBGamut Gamut, TransferFunction Transfer>
+export template <RGBGamut Gamut, TransferFunction Transfer>
 class BasicRGB final : public ColorBase<BasicRGB<Gamut, Transfer>>,
                        public std::conditional_t<std::same_as<Transfer, tf::Linear>,
                                                  ColorArithmetic<BasicRGB<Gamut, Transfer>>,
@@ -405,37 +393,34 @@ public:
  *
  * Convert it to LinSRGB with convert() before blending or other color math.
  */
-using SRGB = BasicRGB<gamut::SRGB, tf::SRGB>;
+export using SRGB = BasicRGB<gamut::SRGB, tf::SRGB>;
 
 /**
  * @brief Linear sRGB: the sRGB primaries without the gamma encoding, so
  *        channels are proportional to light and can exceed 1 for HDR values.
  */
-using LinSRGB = BasicRGB<gamut::SRGB, tf::Linear>;
+export using LinSRGB = BasicRGB<gamut::SRGB, tf::Linear>;
 
 /** @brief Display P3: the P3 primaries with the sRGB transfer function, as on Apple displays and in
  * CSS. */
-using DisplayP3 = BasicRGB<gamut::DisplayP3, tf::SRGB>;
+export using DisplayP3 = BasicRGB<gamut::DisplayP3, tf::SRGB>;
 
 /** @brief Linear Display P3. */
-using LinDisplayP3 = BasicRGB<gamut::DisplayP3, tf::Linear>;
+export using LinDisplayP3 = BasicRGB<gamut::DisplayP3, tf::Linear>;
 
 /** @brief Linear Rec. 2020, the gamut of UHD and HDR video. */
-using LinRec2020 = BasicRGB<gamut::Rec2020, tf::Linear>;
+export using LinRec2020 = BasicRGB<gamut::Rec2020, tf::Linear>;
 
 /** @brief ACEScg: linear AP1, the working space of ACES rendering and compositing. */
-using ACEScg = BasicRGB<gamut::AP1, tf::Linear>;
+export using ACEScg = BasicRGB<gamut::AP1, tf::Linear>;
 
 /** @brief Rec. 2100 PQ: Rec. 2020 primaries with the PQ signal of HDR10, linear 1.0 at 203 cd/m².
  */
-using Rec2100PQ = BasicRGB<gamut::Rec2020, tf::PQ>;
+export using Rec2100PQ = BasicRGB<gamut::Rec2020, tf::PQ>;
 
 /** @brief Rec. 2100 HLG: Rec. 2020 primaries with the HLG signal, linear 1.0 at 75%. */
-using Rec2100HLG = BasicRGB<gamut::Rec2020, tf::HLG>;
-} // namespace aest::colors
+export using Rec2100HLG = BasicRGB<gamut::Rec2020, tf::HLG>;
 
-namespace aest::colors
-{
 /**
  * @brief The gamut and transfer function of a BasicRGB space; empty for other types.
  * @tparam T The type to inspect
@@ -455,22 +440,19 @@ struct RGBParts<BasicRGB<Gamut, Transfer>>
     using GamutTag    = Gamut;    ///< The gamut tag.
     using TransferTag = Transfer; ///< The transfer function tag.
 };
-} // namespace aest::colors
 
-export namespace aest::colors
-{
 /**
  * @brief Any BasicRGB color space.
  * @tparam T The type to check
  */
-template <typename T>
+export template <typename T>
 concept RGBSpace = requires { typename RGBParts<T>::TransferTag; };
 
 /**
  * @brief A BasicRGB space with linear channels, tf::Linear.
  * @tparam T The type to check
  */
-template <typename T>
+export template <typename T>
 concept LinearRGBSpace = RGBSpace<T> && std::same_as<typename RGBParts<T>::TransferTag, tf::Linear>;
 
 /**
@@ -479,7 +461,7 @@ concept LinearRGBSpace = RGBSpace<T> && std::same_as<typename RGBParts<T>::Trans
  *        as PQ are left out.
  * @tparam T The type to check
  */
-template <typename T>
+export template <typename T>
 concept BoundedRGBSpace =
     RGBSpace<T> && !LinearRGBSpace<T> && !HDRTransfer<typename RGBParts<T>::TransferTag>;
 } // namespace aest::colors

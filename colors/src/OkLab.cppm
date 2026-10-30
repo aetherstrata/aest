@@ -44,10 +44,7 @@ constexpr Matrix3 OKLAB_TO_LMS = blas::inverse(LMS_TO_OKLAB);
 
 /** @brief Degrees in a radian. */
 constexpr double DEGREES_PER_RADIAN = 180.0 / std::numbers::pi;
-} // namespace aest::colors
 
-export namespace aest::colors
-{
 /**
  * @brief A color in OKLab, the perceptual space by Björn Ottosson.
  *
@@ -58,7 +55,7 @@ export namespace aest::colors
  * Channels are not clamped: HDR colors have L above 1, and colors outside
  * any display's gamut are valid until converted to it.
  */
-class OKLab final : public ColorBase<OKLab>
+export class OKLab final : public ColorBase<OKLab>
 {
 public:
     /** @brief Color space name, used by the std::formatter specialization. */
@@ -112,7 +109,7 @@ public:
  * grays, whose chroma is 0, the hue has no meaning. Lightness is not
  * clamped.
  */
-class OKLCH final : public ColorBase<OKLCH>
+export class OKLCH final : public ColorBase<OKLCH>
 {
 public:
     /** @brief Color space name, used by the std::formatter specialization. */

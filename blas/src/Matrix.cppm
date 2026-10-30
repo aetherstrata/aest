@@ -11,6 +11,32 @@ module;
 #include <cstddef>
 export module aest.blas:matrix;
 
+namespace aest::blas
+{
+/**
+ * @brief Cofactor of one element of a 3x3 matrix, sign included.
+ * @tparam T The element type
+ * @param[in] matrix The matrix, a `Matrix<T, 3, 3>`
+ * @param[in] row Row of the element
+ * @param[in] column Column of the element
+ * @return The determinant of the minor without @p row and @p column, with
+ *         the sign of the element's position.
+ */
+template <typename T>
+constexpr T cofactor(const std::array<std::array<T, 3>, 3>& matrix,
+                     const std::size_t row,
+                     const std::size_t column)
+{
+    // Taking the other rows and columns in cyclic order folds the sign in
+    const std::size_t row1    = (row + 1) % 3;
+    const std::size_t row2    = (row + 2) % 3;
+    const std::size_t column1 = (column + 1) % 3;
+    const std::size_t column2 = (column + 2) % 3;
+    return matrix[row1][column1] * matrix[row2][column2]
+         - matrix[row1][column2] * matrix[row2][column1];
+}
+} // namespace aest::blas
+
 export namespace aest::blas
 {
 /**
@@ -106,34 +132,6 @@ constexpr Matrix<T, Size, Size> diagonal(const Vector<T, Size>& vector)
         result[index][index] = vector[index];
     return result;
 }
-} // namespace aest::blas
-
-namespace aest::blas
-{
-/**
- * @brief Cofactor of one element of a 3x3 matrix, sign included.
- * @tparam T The element type
- * @param[in] matrix The matrix
- * @param[in] row Row of the element
- * @param[in] column Column of the element
- * @return The determinant of the minor without @p row and @p column, with
- *         the sign of the element's position.
- */
-template <typename T>
-constexpr T cofactor(const Matrix<T, 3, 3>& matrix, const std::size_t row, const std::size_t column)
-{
-    // Taking the other rows and columns in cyclic order folds the sign in
-    const std::size_t row1    = (row + 1) % 3;
-    const std::size_t row2    = (row + 2) % 3;
-    const std::size_t column1 = (column + 1) % 3;
-    const std::size_t column2 = (column + 2) % 3;
-    return matrix[row1][column1] * matrix[row2][column2]
-         - matrix[row1][column2] * matrix[row2][column1];
-}
-} // namespace aest::blas
-
-export namespace aest::blas
-{
 /**
  * @brief Determinant of a 3x3 matrix, by cofactor expansion along the first row.
  * @tparam T The element type

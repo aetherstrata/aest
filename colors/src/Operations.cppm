@@ -72,93 +72,6 @@ template <ColorType Space>
 struct Lightness;
 
 /**
- * @brief Lightness of HSL, stored in the 0-1 range.
- * @tparam RGB The encoded RGB space of the HSL
- */
-template <BoundedRGBSpace RGB>
-struct Lightness<BasicHSL<RGB>>
-{
-    /**
-     * @brief Get the lightness of @p color.
-     * @param[in] color The color to read
-     * @return The lightness in the 0-1 range.
-     */
-    static constexpr float get(const BasicHSL<RGB>& color) noexcept { return color.lightness(); }
-
-    /**
-     * @brief Copy @p color with a new lightness.
-     *
-     * HSL reaches white at lightness 1 and black at 0 whatever the
-     * saturation, so the saturation is kept.
-     *
-     * @param[in] color The color to copy
-     * @param[in] lightness The new lightness in the 0-1 range
-     * @param[in] end The lightness the color moves toward, unused
-     * @return The color with the same hue, saturation and alpha.
-     */
-    static constexpr BasicHSL<RGB> set(const BasicHSL<RGB>& color,
-                                       const float lightness,
-                                       [[maybe_unused]] const float end)
-    {
-        return BasicHSL<RGB>{color.hue(), color.saturation(), lightness, color.alpha()};
-    }
-};
-
-/** @brief Lightness of OKLab, the perceived lightness, 1 being D65 white. */
-template <>
-struct Lightness<OKLab>
-{
-    /**
-     * @brief Get the lightness of @p color.
-     * @param[in] color The color to read
-     * @return The perceived lightness.
-     */
-    static constexpr float get(const OKLab& color) noexcept { return color.lightness(); }
-
-    /**
-     * @brief Copy @p color with a new lightness, on the straight line toward
-     *        white or black.
-     * @param[in] color The color to copy
-     * @param[in] lightness The new perceived lightness
-     * @param[in] end The lightness the color moves toward: 1 for white, 0 for black
-     * @return The color with a and b scaled by the same fraction as the
-     *         distance to @p end, so the hue is kept and @p end is gray.
-     */
-    static constexpr OKLab set(const OKLab& color, const float lightness, const float end)
-    {
-        const float scale = chroma_scale(color.lightness(), lightness, end);
-        return OKLab{lightness, color.a() * scale, color.b() * scale, color.alpha()};
-    }
-};
-
-/** @brief Lightness of OKLCH, the perceived lightness, 1 being D65 white. */
-template <>
-struct Lightness<OKLCH>
-{
-    /**
-     * @brief Get the lightness of @p color.
-     * @param[in] color The color to read
-     * @return The perceived lightness.
-     */
-    static constexpr float get(const OKLCH& color) noexcept { return color.lightness(); }
-
-    /**
-     * @brief Copy @p color with a new lightness, on the straight line toward
-     *        white or black.
-     * @param[in] color The color to copy
-     * @param[in] lightness The new perceived lightness
-     * @param[in] end The lightness the color moves toward: 1 for white, 0 for black
-     * @return The color with its chroma scaled by the same fraction as the
-     *         distance to @p end, the same hue and alpha: @p end is gray.
-     */
-    static constexpr OKLCH set(const OKLCH& color, const float lightness, const float end)
-    {
-        return OKLCH{lightness, color.chroma() * chroma_scale(color.lightness(), lightness, end),
-                     color.hue(), color.alpha()};
-    }
-};
-
-/**
  * @brief A color space whose lightness can be read and replaced through
  * Lightness.
  * @tparam T The type to check
@@ -237,87 +150,7 @@ enum class HueMode : std::uint8_t
     increasing, ///< Clockwise, toward greater hues, wrapping past 360.
     decreasing, ///< Counterclockwise, toward smaller hues, wrapping past 0.
 };
-} // namespace aest::colors
 
-namespace aest::colors
-{
-/**
- * @brief Chroma below which an OKLCH color counts as gray, with no hue.
- *
- * Converting an sRGB gray leaves float noise of about 1e-7 in its chroma; a
- * just noticeable difference is about 0.02.
- */
-constexpr float ACHROMATIC_CHROMA = 1e-4f;
-
-/**
- * @brief Interpolates between two hues along the arc @p mode picks, as in
- *        CSS Color 4.
- * @param[in] from The hue at @p amount 0, in degrees in the [0, 360) range
- * @param[in] to The hue at @p amount 1, in degrees in the [0, 360) range
- * @param[in] amount Position between the two hues, in the 0-1 range
- * @param[in] mode The arc to follow
- * @return The interpolated hue, wrapped to the [0, 360) range.
- */
-constexpr float lerp_hue(float from, float to, const float amount, const HueMode mode)
-{
-    // Unwrap one end by a full turn so that the plain lerp follows the arc
-    const float difference = to - from;
-    switch (mode)
-    {
-    case HueMode::shorter:
-        if (difference > 180)
-            from += 360;
-        else if (difference < -180)
-            to += 360;
-        break;
-    case HueMode::longer:
-        if (difference > 0 && difference < 180)
-            from += 360;
-        else if (difference > -180 && difference <= 0)
-            to += 360;
-        break;
-    case HueMode::increasing:
-        if (to < from)
-            to += 360;
-        break;
-    case HueMode::decreasing:
-        if (from < to)
-            from += 360;
-        break;
-    }
-    return wrap_hue(std::lerp(from, to, amount));
-}
-
-/**
- * @brief Interpolates the hues of two colors, either of which may be gray.
- *
- * A gray color has no hue, so it takes the hue of the other: a gradient
- * from gray to red stays red instead of sweeping through other hues. Two
- * grays give hue 0.
- *
- * @param[in] from The hue of the color at @p amount 0
- * @param[in] fromGray Whether that color is gray
- * @param[in] to The hue of the color at @p amount 1
- * @param[in] toGray Whether that color is gray
- * @param[in] amount Position between the two colors, in the 0-1 range
- * @param[in] mode The arc to follow
- * @return The interpolated hue, wrapped to the [0, 360) range.
- */
-constexpr float lerp_hues(const float from,
-                          const bool fromGray,
-                          const float to,
-                          const bool toGray,
-                          const float amount,
-                          const HueMode mode)
-{
-    if (fromGray && toGray)
-        return 0.f;
-    return lerp_hue(fromGray ? to : from, toGray ? from : to, amount, mode);
-}
-} // namespace aest::colors
-
-export namespace aest::colors
-{
 /**
  * @brief Interpolates between two colors of a color space.
  *
@@ -329,204 +162,6 @@ export namespace aest::colors
  */
 template <ColorType Space>
 struct Interpolation;
-
-/**
- * @brief Interpolation of an RGB space, channel by channel: linear spaces
- *        blend the light, encoded ones the encoded values.
- * @tparam Gamut The gamut tag
- * @tparam Transfer The transfer function tag
- */
-template <RGBGamut Gamut, TransferFunction Transfer>
-struct Interpolation<BasicRGB<Gamut, Transfer>>
-{
-    /**
-     * @brief Interpolates the channels and alpha of two colors.
-     * @param[in] from The color at @p amount 0
-     * @param[in] to The color at @p amount 1
-     * @param[in] amount Position between the two colors, in the 0-1 range
-     * @return The interpolated color.
-     */
-    static constexpr BasicRGB<Gamut, Transfer> lerp(const BasicRGB<Gamut, Transfer>& from,
-                                                    const BasicRGB<Gamut, Transfer>& to,
-                                                    const float amount)
-    {
-        return lerp_channels(from, to, amount);
-    }
-};
-
-/** @brief Interpolation of XYZ, channel by channel: XYZ is linear in light. */
-template <>
-struct Interpolation<XYZ>
-{
-    /**
-     * @brief Interpolates the tristimulus values and alpha of two colors.
-     * @param[in] from The color at @p amount 0
-     * @param[in] to The color at @p amount 1
-     * @param[in] amount Position between the two colors, in the 0-1 range
-     * @return The interpolated color.
-     */
-    static constexpr XYZ lerp(const XYZ& from, const XYZ& to, const float amount)
-    {
-        return lerp_channels(from, to, amount);
-    }
-};
-
-/**
- * @brief Interpolation of OKLab, channel by channel: gradients with even
- *        perceived steps, like CSS `color-mix(in oklab, …)`.
- */
-template <>
-struct Interpolation<OKLab>
-{
-    /**
-     * @brief Interpolates the lightness, a, b and alpha of two colors.
-     * @param[in] from The color at @p amount 0
-     * @param[in] to The color at @p amount 1
-     * @param[in] amount Position between the two colors, in the 0-1 range
-     * @return The interpolated color.
-     */
-    static constexpr OKLab lerp(const OKLab& from, const OKLab& to, const float amount)
-    {
-        return lerp_channels(from, to, amount);
-    }
-};
-
-/**
- * @brief Interpolation of HSL: the hue along an arc of the hue circle,
- *        saturation, lightness and alpha linearly.
- * @tparam RGB The encoded RGB space of the HSL
- */
-template <BoundedRGBSpace RGB>
-struct Interpolation<BasicHSL<RGB>>
-{
-    /**
-     * @brief Interpolates two colors, the hue along the arc @p mode picks.
-     *
-     * A color with saturation 0 is gray, and takes the hue of the other.
-     *
-     * @param[in] from The color at @p amount 0
-     * @param[in] to The color at @p amount 1
-     * @param[in] amount Position between the two colors, in the 0-1 range
-     * @param[in] mode The arc of the hue circle to follow
-     * @return The interpolated color.
-     */
-    static constexpr BasicHSL<RGB> lerp(const BasicHSL<RGB>& from,
-                                        const BasicHSL<RGB>& to,
-                                        const float amount,
-                                        const HueMode mode)
-    {
-        return BasicHSL<RGB>{lerp_hues(from.hue(), from.saturation() == 0, to.hue(),
-                                       to.saturation() == 0, amount, mode),
-                             std::lerp(from.saturation(), to.saturation(), amount),
-                             std::lerp(from.lightness(), to.lightness(), amount),
-                             std::lerp(from.alpha(), to.alpha(), amount)};
-    }
-
-    /**
-     * @brief Interpolates two colors, the hue along the shorter arc.
-     * @param[in] from The color at @p amount 0
-     * @param[in] to The color at @p amount 1
-     * @param[in] amount Position between the two colors, in the 0-1 range
-     * @return The interpolated color.
-     */
-    static constexpr BasicHSL<RGB> lerp(const BasicHSL<RGB>& from,
-                                        const BasicHSL<RGB>& to,
-                                        const float amount)
-    {
-        return lerp(from, to, amount, HueMode::shorter);
-    }
-};
-
-/**
- * @brief Interpolation of HSV: the hue along an arc of the hue circle,
- *        saturation, value and alpha linearly.
- * @tparam RGB The encoded RGB space of the HSV
- */
-template <BoundedRGBSpace RGB>
-struct Interpolation<BasicHSV<RGB>>
-{
-    /**
-     * @brief Interpolates two colors, the hue along the arc @p mode picks.
-     *
-     * A color with saturation 0 is gray, and takes the hue of the other.
-     *
-     * @param[in] from The color at @p amount 0
-     * @param[in] to The color at @p amount 1
-     * @param[in] amount Position between the two colors, in the 0-1 range
-     * @param[in] mode The arc of the hue circle to follow
-     * @return The interpolated color.
-     */
-    static constexpr BasicHSV<RGB> lerp(const BasicHSV<RGB>& from,
-                                        const BasicHSV<RGB>& to,
-                                        const float amount,
-                                        const HueMode mode)
-    {
-        return BasicHSV<RGB>{lerp_hues(from.hue(), from.saturation() == 0, to.hue(),
-                                       to.saturation() == 0, amount, mode),
-                             std::lerp(from.saturation(), to.saturation(), amount),
-                             std::lerp(from.brightness(), to.brightness(), amount),
-                             std::lerp(from.alpha(), to.alpha(), amount)};
-    }
-
-    /**
-     * @brief Interpolates two colors, the hue along the shorter arc.
-     * @param[in] from The color at @p amount 0
-     * @param[in] to The color at @p amount 1
-     * @param[in] amount Position between the two colors, in the 0-1 range
-     * @return The interpolated color.
-     */
-    static constexpr BasicHSV<RGB> lerp(const BasicHSV<RGB>& from,
-                                        const BasicHSV<RGB>& to,
-                                        const float amount)
-    {
-        return lerp(from, to, amount, HueMode::shorter);
-    }
-};
-
-/**
- * @brief Interpolation of OKLCH: the hue along an arc of the hue circle,
- *        lightness, chroma and alpha linearly, like CSS
- *        `color-mix(in oklch, …)`.
- */
-template <>
-struct Interpolation<OKLCH>
-{
-    /**
-     * @brief Interpolates two colors, the hue along the arc @p mode picks.
-     *
-     * A color with chroma below ACHROMATIC_CHROMA is gray, and takes the hue
-     * of the other.
-     *
-     * @param[in] from The color at @p amount 0
-     * @param[in] to The color at @p amount 1
-     * @param[in] amount Position between the two colors, in the 0-1 range
-     * @param[in] mode The arc of the hue circle to follow
-     * @return The interpolated color.
-     */
-    static constexpr OKLCH lerp(const OKLCH& from,
-                                const OKLCH& to,
-                                const float amount,
-                                const HueMode mode)
-    {
-        return OKLCH{std::lerp(from.lightness(), to.lightness(), amount),
-                     std::lerp(from.chroma(), to.chroma(), amount),
-                     lerp_hues(from.hue(), from.chroma() < ACHROMATIC_CHROMA, to.hue(),
-                               to.chroma() < ACHROMATIC_CHROMA, amount, mode),
-                     std::lerp(from.alpha(), to.alpha(), amount)};
-    }
-
-    /**
-     * @brief Interpolates two colors, the hue along the shorter arc.
-     * @param[in] from The color at @p amount 0
-     * @param[in] to The color at @p amount 1
-     * @param[in] amount Position between the two colors, in the 0-1 range
-     * @return The interpolated color.
-     */
-    static constexpr OKLCH lerp(const OKLCH& from, const OKLCH& to, const float amount)
-    {
-        return lerp(from, to, amount, HueMode::shorter);
-    }
-};
 
 /**
  * @brief A color space whose colors can be interpolated through
@@ -729,90 +364,6 @@ template <ColorType Space>
 struct Saturation;
 
 /**
- * @brief Saturation of HSL, in the 0-1 range.
- * @tparam RGB The encoded RGB space of the HSL
- */
-template <BoundedRGBSpace RGB>
-struct Saturation<BasicHSL<RGB>>
-{
-    /** @brief The saturation of the most colorful colors. */
-    static constexpr float MAX = 1.f;
-
-    /**
-     * @brief Get the saturation of @p color.
-     * @param[in] color The color to read
-     * @return The saturation in the 0-1 range.
-     */
-    static constexpr float get(const BasicHSL<RGB>& color) noexcept { return color.saturation(); }
-
-    /**
-     * @brief Copy @p color with a new saturation.
-     * @param[in] color The color to copy
-     * @param[in] saturation The new saturation in the 0-1 range
-     * @return The color with the same hue, lightness and alpha.
-     */
-    static constexpr BasicHSL<RGB> set(const BasicHSL<RGB>& color, const float saturation)
-    {
-        return BasicHSL<RGB>{color.hue(), saturation, color.lightness(), color.alpha()};
-    }
-};
-
-/**
- * @brief Saturation of HSV, in the 0-1 range.
- * @tparam RGB The encoded RGB space of the HSV
- */
-template <BoundedRGBSpace RGB>
-struct Saturation<BasicHSV<RGB>>
-{
-    /** @brief The saturation of the most colorful colors. */
-    static constexpr float MAX = 1.f;
-
-    /**
-     * @brief Get the saturation of @p color.
-     * @param[in] color The color to read
-     * @return The saturation in the 0-1 range.
-     */
-    static constexpr float get(const BasicHSV<RGB>& color) noexcept { return color.saturation(); }
-
-    /**
-     * @brief Copy @p color with a new saturation.
-     * @param[in] color The color to copy
-     * @param[in] saturation The new saturation in the 0-1 range
-     * @return The color with the same hue, value and alpha.
-     */
-    static constexpr BasicHSV<RGB> set(const BasicHSV<RGB>& color, const float saturation)
-    {
-        return BasicHSV<RGB>{color.hue(), saturation, color.brightness(), color.alpha()};
-    }
-};
-
-/**
- * @brief Saturation of OKLCH: its chroma, which has no maximum, so
- *        saturate() scales it.
- */
-template <>
-struct Saturation<OKLCH>
-{
-    /**
-     * @brief Get the chroma of @p color.
-     * @param[in] color The color to read
-     * @return The chroma, 0 or greater.
-     */
-    static constexpr float get(const OKLCH& color) noexcept { return color.chroma(); }
-
-    /**
-     * @brief Copy @p color with a new chroma.
-     * @param[in] color The color to copy
-     * @param[in] chroma The new chroma
-     * @return The color with the same lightness, hue and alpha.
-     */
-    static constexpr OKLCH set(const OKLCH& color, const float chroma)
-    {
-        return OKLCH{color.lightness(), chroma, color.hue(), color.alpha()};
-    }
-};
-
-/**
  * @brief A color space whose saturation can be read and replaced through
  * Saturation.
  * @tparam T The type to check
@@ -931,6 +482,520 @@ template <ColorType Space>
 struct Hue;
 
 /**
+ * @brief A color space whose hue can be read and replaced through Hue.
+ * @tparam T The type to check
+ */
+template <typename T>
+concept HueSpace = ColorType<T> && requires(const T& color, const float value) {
+    { Hue<T>::get(color) } -> std::same_as<float>;
+    { Hue<T>::set(color, value) } -> std::same_as<T>;
+};
+
+/**
+ * @brief Turns the hue of a color around the hue circle.
+ *
+ * The color is converted to @p Space, its hue moves by @p degrees and it is
+ * converted back, keeping the rest. In the default, OKLCH, the perceived
+ * lightness and chroma are kept, so the rotated color looks as bright as
+ * the original; it may fall outside the gamut and clip when converted back.
+ * Gray colors have no hue and stay as they are.
+ *
+ * @tparam Space The color space the hue is turned in
+ * @tparam Color The color type of the input and the result
+ * @param[in] color The color to rotate
+ * @param[in] degrees The angle to add to the hue, any finite value
+ * @param[in] space The working space, e.g. `in<HSL>`; OKLCH when omitted
+ * @return The rotated color.
+ */
+template <HueSpace Space = OKLCH, ColorType Color>
+    requires ConvertibleTo<Space, Color> && ConvertibleTo<Color, Space>
+constexpr Color rotate_hue(const Color& color,
+                           const float degrees,
+                           [[maybe_unused]] In<Space> space = {})
+{
+    const auto working = convert<Space>(color);
+    return convert<Color>(Hue<Space>::set(working, Hue<Space>::get(working) + degrees));
+}
+
+/**
+ * @brief The complementary color: the hue turned by 180 degrees.
+ * @tparam Space The color space the hue is turned in
+ * @tparam Color The color type of the input and the result
+ * @param[in] color The color to complement
+ * @param[in] space The working space, e.g. `in<HSL>`; OKLCH when omitted
+ * @return The complementary color, with the lightness and alpha of @p color.
+ */
+template <HueSpace Space = OKLCH, ColorType Color>
+    requires ConvertibleTo<Space, Color> && ConvertibleTo<Color, Space>
+constexpr Color complement(const Color& color, [[maybe_unused]] In<Space> space = {})
+{
+    return rotate_hue<Space>(color, 180.f);
+}
+
+/**
+ * @brief Inverts each channel of an encoded RGB color, `1 - c`, like CSS
+ *        `invert()`; alpha is kept.
+ *
+ * It works on the encoded values, as a photo negative of the pixels does, so
+ * a mid gray of SRGB 0.5 stays the same.
+ *
+ * @tparam Color An encoded RGB space, such as SRGB
+ * @param[in] color The color to invert
+ * @return The inverted color.
+ */
+template <BoundedRGBSpace Color>
+constexpr Color invert(const Color& color)
+{
+    return Color{1 - color.red(), 1 - color.green(), 1 - color.blue(), color.alpha()};
+}
+} // namespace aest::colors
+
+namespace aest::colors
+{
+/**
+ * @brief Chroma below which an OKLCH color counts as gray, with no hue.
+ *
+ * Converting an sRGB gray leaves float noise of about 1e-7 in its chroma; a
+ * just noticeable difference is about 0.02.
+ */
+constexpr float ACHROMATIC_CHROMA = 1e-4f;
+
+/**
+ * @brief Interpolates between two hues along the arc @p mode picks, as in
+ *        CSS Color 4.
+ * @param[in] from The hue at @p amount 0, in degrees in the [0, 360) range
+ * @param[in] to The hue at @p amount 1, in degrees in the [0, 360) range
+ * @param[in] amount Position between the two hues, in the 0-1 range
+ * @param[in] mode The arc to follow
+ * @return The interpolated hue, wrapped to the [0, 360) range.
+ */
+constexpr float lerp_hue(float from, float to, const float amount, const HueMode mode)
+{
+    // Unwrap one end by a full turn so that the plain lerp follows the arc
+    const float difference = to - from;
+    switch (mode)
+    {
+    case HueMode::shorter:
+        if (difference > 180)
+            from += 360;
+        else if (difference < -180)
+            to += 360;
+        break;
+    case HueMode::longer:
+        if (difference > 0 && difference < 180)
+            from += 360;
+        else if (difference > -180 && difference <= 0)
+            to += 360;
+        break;
+    case HueMode::increasing:
+        if (to < from)
+            to += 360;
+        break;
+    case HueMode::decreasing:
+        if (from < to)
+            from += 360;
+        break;
+    }
+    return wrap_hue(std::lerp(from, to, amount));
+}
+
+/**
+ * @brief Interpolates the hues of two colors, either of which may be gray.
+ *
+ * A gray color has no hue, so it takes the hue of the other: a gradient
+ * from gray to red stays red instead of sweeping through other hues. Two
+ * grays give hue 0.
+ *
+ * @param[in] from The hue of the color at @p amount 0
+ * @param[in] fromGray Whether that color is gray
+ * @param[in] to The hue of the color at @p amount 1
+ * @param[in] toGray Whether that color is gray
+ * @param[in] amount Position between the two colors, in the 0-1 range
+ * @param[in] mode The arc to follow
+ * @return The interpolated hue, wrapped to the [0, 360) range.
+ */
+constexpr float lerp_hues(const float from,
+                          const bool fromGray,
+                          const float to,
+                          const bool toGray,
+                          const float amount,
+                          const HueMode mode)
+{
+    if (fromGray && toGray)
+        return 0.f;
+    return lerp_hue(fromGray ? to : from, toGray ? from : to, amount, mode);
+}
+
+/**
+ * @brief Lightness of HSL, stored in the 0-1 range.
+ * @tparam RGB The encoded RGB space of the HSL
+ */
+template <BoundedRGBSpace RGB>
+struct Lightness<BasicHSL<RGB>>
+{
+    /**
+     * @brief Get the lightness of @p color.
+     * @param[in] color The color to read
+     * @return The lightness in the 0-1 range.
+     */
+    static constexpr float get(const BasicHSL<RGB>& color) noexcept { return color.lightness(); }
+
+    /**
+     * @brief Copy @p color with a new lightness.
+     *
+     * HSL reaches white at lightness 1 and black at 0 whatever the
+     * saturation, so the saturation is kept.
+     *
+     * @param[in] color The color to copy
+     * @param[in] lightness The new lightness in the 0-1 range
+     * @param[in] end The lightness the color moves toward, unused
+     * @return The color with the same hue, saturation and alpha.
+     */
+    static constexpr BasicHSL<RGB> set(const BasicHSL<RGB>& color,
+                                       const float lightness,
+                                       [[maybe_unused]] const float end)
+    {
+        return BasicHSL<RGB>{color.hue(), color.saturation(), lightness, color.alpha()};
+    }
+};
+
+/** @brief Lightness of OKLab, the perceived lightness, 1 being D65 white. */
+template <>
+struct Lightness<OKLab>
+{
+    /**
+     * @brief Get the lightness of @p color.
+     * @param[in] color The color to read
+     * @return The perceived lightness.
+     */
+    static constexpr float get(const OKLab& color) noexcept { return color.lightness(); }
+
+    /**
+     * @brief Copy @p color with a new lightness, on the straight line toward
+     *        white or black.
+     * @param[in] color The color to copy
+     * @param[in] lightness The new perceived lightness
+     * @param[in] end The lightness the color moves toward: 1 for white, 0 for black
+     * @return The color with a and b scaled by the same fraction as the
+     *         distance to @p end, so the hue is kept and @p end is gray.
+     */
+    static constexpr OKLab set(const OKLab& color, const float lightness, const float end)
+    {
+        const float scale = chroma_scale(color.lightness(), lightness, end);
+        return OKLab{lightness, color.a() * scale, color.b() * scale, color.alpha()};
+    }
+};
+
+/** @brief Lightness of OKLCH, the perceived lightness, 1 being D65 white. */
+template <>
+struct Lightness<OKLCH>
+{
+    /**
+     * @brief Get the lightness of @p color.
+     * @param[in] color The color to read
+     * @return The perceived lightness.
+     */
+    static constexpr float get(const OKLCH& color) noexcept { return color.lightness(); }
+
+    /**
+     * @brief Copy @p color with a new lightness, on the straight line toward
+     *        white or black.
+     * @param[in] color The color to copy
+     * @param[in] lightness The new perceived lightness
+     * @param[in] end The lightness the color moves toward: 1 for white, 0 for black
+     * @return The color with its chroma scaled by the same fraction as the
+     *         distance to @p end, the same hue and alpha: @p end is gray.
+     */
+    static constexpr OKLCH set(const OKLCH& color, const float lightness, const float end)
+    {
+        return OKLCH{lightness, color.chroma() * chroma_scale(color.lightness(), lightness, end),
+                     color.hue(), color.alpha()};
+    }
+};
+
+/**
+ * @brief Interpolation of an RGB space, channel by channel: linear spaces
+ *        blend the light, encoded ones the encoded values.
+ * @tparam Gamut The gamut tag
+ * @tparam Transfer The transfer function tag
+ */
+template <RGBGamut Gamut, TransferFunction Transfer>
+struct Interpolation<BasicRGB<Gamut, Transfer>>
+{
+    /**
+     * @brief Interpolates the channels and alpha of two colors.
+     * @param[in] from The color at @p amount 0
+     * @param[in] to The color at @p amount 1
+     * @param[in] amount Position between the two colors, in the 0-1 range
+     * @return The interpolated color.
+     */
+    static constexpr BasicRGB<Gamut, Transfer> lerp(const BasicRGB<Gamut, Transfer>& from,
+                                                    const BasicRGB<Gamut, Transfer>& to,
+                                                    const float amount)
+    {
+        return lerp_channels(from, to, amount);
+    }
+};
+
+/** @brief Interpolation of XYZ, channel by channel: XYZ is linear in light. */
+template <>
+struct Interpolation<XYZ>
+{
+    /**
+     * @brief Interpolates the tristimulus values and alpha of two colors.
+     * @param[in] from The color at @p amount 0
+     * @param[in] to The color at @p amount 1
+     * @param[in] amount Position between the two colors, in the 0-1 range
+     * @return The interpolated color.
+     */
+    static constexpr XYZ lerp(const XYZ& from, const XYZ& to, const float amount)
+    {
+        return lerp_channels(from, to, amount);
+    }
+};
+
+/**
+ * @brief Interpolation of OKLab, channel by channel: gradients with even
+ *        perceived steps, like CSS `color-mix(in oklab, …)`.
+ */
+template <>
+struct Interpolation<OKLab>
+{
+    /**
+     * @brief Interpolates the lightness, a, b and alpha of two colors.
+     * @param[in] from The color at @p amount 0
+     * @param[in] to The color at @p amount 1
+     * @param[in] amount Position between the two colors, in the 0-1 range
+     * @return The interpolated color.
+     */
+    static constexpr OKLab lerp(const OKLab& from, const OKLab& to, const float amount)
+    {
+        return lerp_channels(from, to, amount);
+    }
+};
+
+/**
+ * @brief Interpolation of HSL: the hue along an arc of the hue circle,
+ *        saturation, lightness and alpha linearly.
+ * @tparam RGB The encoded RGB space of the HSL
+ */
+template <BoundedRGBSpace RGB>
+struct Interpolation<BasicHSL<RGB>>
+{
+    /**
+     * @brief Interpolates two colors, the hue along the arc @p mode picks.
+     *
+     * A color with saturation 0 is gray, and takes the hue of the other.
+     *
+     * @param[in] from The color at @p amount 0
+     * @param[in] to The color at @p amount 1
+     * @param[in] amount Position between the two colors, in the 0-1 range
+     * @param[in] mode The arc of the hue circle to follow
+     * @return The interpolated color.
+     */
+    static constexpr BasicHSL<RGB> lerp(const BasicHSL<RGB>& from,
+                                        const BasicHSL<RGB>& to,
+                                        const float amount,
+                                        const HueMode mode)
+    {
+        return BasicHSL<RGB>{lerp_hues(from.hue(), from.saturation() == 0, to.hue(),
+                                       to.saturation() == 0, amount, mode),
+                             std::lerp(from.saturation(), to.saturation(), amount),
+                             std::lerp(from.lightness(), to.lightness(), amount),
+                             std::lerp(from.alpha(), to.alpha(), amount)};
+    }
+
+    /**
+     * @brief Interpolates two colors, the hue along the shorter arc.
+     * @param[in] from The color at @p amount 0
+     * @param[in] to The color at @p amount 1
+     * @param[in] amount Position between the two colors, in the 0-1 range
+     * @return The interpolated color.
+     */
+    static constexpr BasicHSL<RGB> lerp(const BasicHSL<RGB>& from,
+                                        const BasicHSL<RGB>& to,
+                                        const float amount)
+    {
+        return lerp(from, to, amount, HueMode::shorter);
+    }
+};
+
+/**
+ * @brief Interpolation of HSV: the hue along an arc of the hue circle,
+ *        saturation, value and alpha linearly.
+ * @tparam RGB The encoded RGB space of the HSV
+ */
+template <BoundedRGBSpace RGB>
+struct Interpolation<BasicHSV<RGB>>
+{
+    /**
+     * @brief Interpolates two colors, the hue along the arc @p mode picks.
+     *
+     * A color with saturation 0 is gray, and takes the hue of the other.
+     *
+     * @param[in] from The color at @p amount 0
+     * @param[in] to The color at @p amount 1
+     * @param[in] amount Position between the two colors, in the 0-1 range
+     * @param[in] mode The arc of the hue circle to follow
+     * @return The interpolated color.
+     */
+    static constexpr BasicHSV<RGB> lerp(const BasicHSV<RGB>& from,
+                                        const BasicHSV<RGB>& to,
+                                        const float amount,
+                                        const HueMode mode)
+    {
+        return BasicHSV<RGB>{lerp_hues(from.hue(), from.saturation() == 0, to.hue(),
+                                       to.saturation() == 0, amount, mode),
+                             std::lerp(from.saturation(), to.saturation(), amount),
+                             std::lerp(from.brightness(), to.brightness(), amount),
+                             std::lerp(from.alpha(), to.alpha(), amount)};
+    }
+
+    /**
+     * @brief Interpolates two colors, the hue along the shorter arc.
+     * @param[in] from The color at @p amount 0
+     * @param[in] to The color at @p amount 1
+     * @param[in] amount Position between the two colors, in the 0-1 range
+     * @return The interpolated color.
+     */
+    static constexpr BasicHSV<RGB> lerp(const BasicHSV<RGB>& from,
+                                        const BasicHSV<RGB>& to,
+                                        const float amount)
+    {
+        return lerp(from, to, amount, HueMode::shorter);
+    }
+};
+
+/**
+ * @brief Interpolation of OKLCH: the hue along an arc of the hue circle,
+ *        lightness, chroma and alpha linearly, like CSS
+ *        `color-mix(in oklch, …)`.
+ */
+template <>
+struct Interpolation<OKLCH>
+{
+    /**
+     * @brief Interpolates two colors, the hue along the arc @p mode picks.
+     *
+     * A color with chroma below ACHROMATIC_CHROMA is gray, and takes the hue
+     * of the other.
+     *
+     * @param[in] from The color at @p amount 0
+     * @param[in] to The color at @p amount 1
+     * @param[in] amount Position between the two colors, in the 0-1 range
+     * @param[in] mode The arc of the hue circle to follow
+     * @return The interpolated color.
+     */
+    static constexpr OKLCH lerp(const OKLCH& from,
+                                const OKLCH& to,
+                                const float amount,
+                                const HueMode mode)
+    {
+        return OKLCH{std::lerp(from.lightness(), to.lightness(), amount),
+                     std::lerp(from.chroma(), to.chroma(), amount),
+                     lerp_hues(from.hue(), from.chroma() < ACHROMATIC_CHROMA, to.hue(),
+                               to.chroma() < ACHROMATIC_CHROMA, amount, mode),
+                     std::lerp(from.alpha(), to.alpha(), amount)};
+    }
+
+    /**
+     * @brief Interpolates two colors, the hue along the shorter arc.
+     * @param[in] from The color at @p amount 0
+     * @param[in] to The color at @p amount 1
+     * @param[in] amount Position between the two colors, in the 0-1 range
+     * @return The interpolated color.
+     */
+    static constexpr OKLCH lerp(const OKLCH& from, const OKLCH& to, const float amount)
+    {
+        return lerp(from, to, amount, HueMode::shorter);
+    }
+};
+
+/**
+ * @brief Saturation of HSL, in the 0-1 range.
+ * @tparam RGB The encoded RGB space of the HSL
+ */
+template <BoundedRGBSpace RGB>
+struct Saturation<BasicHSL<RGB>>
+{
+    /** @brief The saturation of the most colorful colors. */
+    static constexpr float MAX = 1.f;
+
+    /**
+     * @brief Get the saturation of @p color.
+     * @param[in] color The color to read
+     * @return The saturation in the 0-1 range.
+     */
+    static constexpr float get(const BasicHSL<RGB>& color) noexcept { return color.saturation(); }
+
+    /**
+     * @brief Copy @p color with a new saturation.
+     * @param[in] color The color to copy
+     * @param[in] saturation The new saturation in the 0-1 range
+     * @return The color with the same hue, lightness and alpha.
+     */
+    static constexpr BasicHSL<RGB> set(const BasicHSL<RGB>& color, const float saturation)
+    {
+        return BasicHSL<RGB>{color.hue(), saturation, color.lightness(), color.alpha()};
+    }
+};
+
+/**
+ * @brief Saturation of HSV, in the 0-1 range.
+ * @tparam RGB The encoded RGB space of the HSV
+ */
+template <BoundedRGBSpace RGB>
+struct Saturation<BasicHSV<RGB>>
+{
+    /** @brief The saturation of the most colorful colors. */
+    static constexpr float MAX = 1.f;
+
+    /**
+     * @brief Get the saturation of @p color.
+     * @param[in] color The color to read
+     * @return The saturation in the 0-1 range.
+     */
+    static constexpr float get(const BasicHSV<RGB>& color) noexcept { return color.saturation(); }
+
+    /**
+     * @brief Copy @p color with a new saturation.
+     * @param[in] color The color to copy
+     * @param[in] saturation The new saturation in the 0-1 range
+     * @return The color with the same hue, value and alpha.
+     */
+    static constexpr BasicHSV<RGB> set(const BasicHSV<RGB>& color, const float saturation)
+    {
+        return BasicHSV<RGB>{color.hue(), saturation, color.brightness(), color.alpha()};
+    }
+};
+
+/**
+ * @brief Saturation of OKLCH: its chroma, which has no maximum, so
+ *        saturate() scales it.
+ */
+template <>
+struct Saturation<OKLCH>
+{
+    /**
+     * @brief Get the chroma of @p color.
+     * @param[in] color The color to read
+     * @return The chroma, 0 or greater.
+     */
+    static constexpr float get(const OKLCH& color) noexcept { return color.chroma(); }
+
+    /**
+     * @brief Copy @p color with a new chroma.
+     * @param[in] color The color to copy
+     * @param[in] chroma The new chroma
+     * @return The color with the same lightness, hue and alpha.
+     */
+    static constexpr OKLCH set(const OKLCH& color, const float chroma)
+    {
+        return OKLCH{color.lightness(), chroma, color.hue(), color.alpha()};
+    }
+};
+
+/**
  * @brief Hue of HSL, in degrees.
  * @tparam RGB The encoded RGB space of the HSL
  */
@@ -1004,72 +1069,4 @@ struct Hue<OKLCH>
         return OKLCH{color.lightness(), color.chroma(), hue, color.alpha()};
     }
 };
-
-/**
- * @brief A color space whose hue can be read and replaced through Hue.
- * @tparam T The type to check
- */
-template <typename T>
-concept HueSpace = ColorType<T> && requires(const T& color, const float value) {
-    { Hue<T>::get(color) } -> std::same_as<float>;
-    { Hue<T>::set(color, value) } -> std::same_as<T>;
-};
-
-/**
- * @brief Turns the hue of a color around the hue circle.
- *
- * The color is converted to @p Space, its hue moves by @p degrees and it is
- * converted back, keeping the rest. In the default, OKLCH, the perceived
- * lightness and chroma are kept, so the rotated color looks as bright as
- * the original; it may fall outside the gamut and clip when converted back.
- * Gray colors have no hue and stay as they are.
- *
- * @tparam Space The color space the hue is turned in
- * @tparam Color The color type of the input and the result
- * @param[in] color The color to rotate
- * @param[in] degrees The angle to add to the hue, any finite value
- * @param[in] space The working space, e.g. `in<HSL>`; OKLCH when omitted
- * @return The rotated color.
- */
-template <HueSpace Space = OKLCH, ColorType Color>
-    requires ConvertibleTo<Space, Color> && ConvertibleTo<Color, Space>
-constexpr Color rotate_hue(const Color& color,
-                           const float degrees,
-                           [[maybe_unused]] In<Space> space = {})
-{
-    const auto working = convert<Space>(color);
-    return convert<Color>(Hue<Space>::set(working, Hue<Space>::get(working) + degrees));
-}
-
-/**
- * @brief The complementary color: the hue turned by 180 degrees.
- * @tparam Space The color space the hue is turned in
- * @tparam Color The color type of the input and the result
- * @param[in] color The color to complement
- * @param[in] space The working space, e.g. `in<HSL>`; OKLCH when omitted
- * @return The complementary color, with the lightness and alpha of @p color.
- */
-template <HueSpace Space = OKLCH, ColorType Color>
-    requires ConvertibleTo<Space, Color> && ConvertibleTo<Color, Space>
-constexpr Color complement(const Color& color, [[maybe_unused]] In<Space> space = {})
-{
-    return rotate_hue<Space>(color, 180.f);
-}
-
-/**
- * @brief Inverts each channel of an encoded RGB color, `1 - c`, like CSS
- *        `invert()`; alpha is kept.
- *
- * It works on the encoded values, as a photo negative of the pixels does, so
- * a mid gray of SRGB 0.5 stays the same.
- *
- * @tparam Color An encoded RGB space, such as SRGB
- * @param[in] color The color to invert
- * @return The inverted color.
- */
-template <BoundedRGBSpace Color>
-constexpr Color invert(const Color& color)
-{
-    return Color{1 - color.red(), 1 - color.green(), 1 - color.blue(), color.alpha()};
-}
 } // namespace aest::colors

@@ -35,10 +35,7 @@ float channel_distance(const Space& color1, const Space& color2)
 
     return std::sqrt(diff1 * diff1 + diff2 * diff2 + diff3 * diff3);
 }
-} // namespace aest::colors
 
-export namespace aest::colors
-{
 /**
  * @brief Measures the Euclidean distance between two colors of a color space.
  *
@@ -48,7 +45,7 @@ export namespace aest::colors
  *
  * @tparam Space The color space.
  */
-template <ColorType Space>
+export template <ColorType Space>
 struct Euclidean;
 
 /**
@@ -99,7 +96,7 @@ struct Euclidean<OKLab>
  * Euclidean.
  * @tparam T The type to check
  */
-template <typename T>
+export template <typename T>
 concept EuclideanSpace = ColorType<T> && requires(const T& color) {
     { Euclidean<T>::distance(color, color) } -> std::same_as<float>;
 };
@@ -122,7 +119,7 @@ concept EuclideanSpace = ColorType<T> && requires(const T& color) {
  * @return The distance: 1 from black to white in OKLab, and in the
  *         0-sqrt(3) range for SRGB and for LinSRGB colors without HDR values.
  */
-template <EuclideanSpace Space = OKLab, ColorType Color1, ColorType Color2>
+export template <EuclideanSpace Space = OKLab, ColorType Color1, ColorType Color2>
     requires ConvertibleTo<Space, Color1> && ConvertibleTo<Space, Color2>
 float euclidean(const Color1& color1, const Color2& color2, [[maybe_unused]] In<Space> space = {})
 {
