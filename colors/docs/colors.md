@@ -27,8 +27,13 @@ SRGB is the encoding of hex codes, bytes and CSS; convert to a linear space
 for color math. aest::colors::RGBSpace, aest::colors::LinearRGBSpace and
 aest::colors::BoundedRGBSpace tell the kinds apart.
 
-- aest::colors::HSL, aest::colors::HSV — hue, saturation and lightness or
-  value, over SRGB.
+- aest::colors::BasicHSL, aest::colors::BasicHSV — hue, saturation and
+  lightness or value, over an encoded RGB space: `BasicHSL<DisplayP3>` reaches
+  the P3 colors that HSL over sRGB clips. aest::colors::HSL and
+  aest::colors::HSV are the ones over SRGB, the HSL of CSS. A hue is relative
+  to the primaries, so the same color has different hues over different
+  gamuts. Linear spaces are rejected, since the formulas need channels in
+  [0, 1].
 - aest::colors::XYZ — CIE 1931 XYZ relative to D65, independent of any
   display's primaries: the root of the conversion tree. Y is the relative
   luminance, and the channels are not clamped.

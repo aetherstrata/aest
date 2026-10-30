@@ -1141,3 +1141,69 @@ TEST_CASE("Gamuts and transfer functions defined outside the library join the tr
     const SRGB back = convert<SRGB>(convert<AdobeRGB>(srgb));
     CHECK_THAT(back.green(), WithinAbs(srgb.green(), 1e-5));
 }
+
+namespace
+{
+template <typename RGB>
+concept HasHSL = requires { typename aest::colors::BasicHSL<RGB>; };
+
+template <typename RGB>
+concept HasHSV = requires { typename aest::colors::BasicHSV<RGB>; };
+
+using HSLP3 = aest::colors::BasicHSL<DisplayP3>;
+using HSVP3 = aest::colors::BasicHSV<DisplayP3>;
+} // namespace
+
+TEST_CASE("HSL and HSV are views of any encoded RGB space", "[colors][cylindrical]")
+{
+    STATIC_REQUIRE(std::is_same_v<HSL, aest::colors::BasicHSL<SRGB>>);
+    STATIC_REQUIRE(HSL::TYPE == "HSL");
+    STATIC_REQUIRE(HSV::TYPE == "HSV");
+    STATIC_REQUIRE(HSLP3::TYPE == "HSL<DisplayP3>");
+    STATIC_REQUIRE(HSVP3::TYPE == "HSV<DisplayP3>");
+    CHECK(std::format("{:.1f}", HSLP3{120.f, 1.f, 0.5f}) == "HSL<DisplayP3>(120.0, 1.0, 0.5, 1.0)");
+
+    // The formulas need channels in [0, 1]: linear spaces are rejected
+    STATIC_REQUIRE(HasHSL<DisplayP3>);
+    STATIC_REQUIRE(HasHSV<SRGB>);
+    STATIC_REQUIRE_FALSE(HasHSL<LinSRGB>);
+    STATIC_REQUIRE_FALSE(HasHSV<ACEScg>);
+    STATIC_REQUIRE_FALSE(HasHSL<XYZ>);
+}
+
+TEST_CASE("HSL over DisplayP3 converts through DisplayP3", "[colors][cylindrical]")
+{
+    using aest::colors::convert;
+
+    // Same formulas as over SRGB, applied to the P3 channels
+    STATIC_REQUIRE(convert<DisplayP3>(HSLP3{0.f, 1.f, 0.5f}) == DisplayP3{1.f, 0.f, 0.f});
+    STATIC_REQUIRE(convert<HSVP3>(DisplayP3{1.f, 0.f, 0.5f}) == HSVP3{330.f, 1.f, 1.f});
+
+    // HSL <-> HSV over one RGB space keeps the hue exactly
+    STATIC_REQUIRE(convert<HSVP3>(HSLP3{210.f, 0.5f, 0.5f}).hue() == 210.f);
+
+    // P3 red is outside sRGB: HSL over P3 keeps it, HSL over sRGB clips it
+    const HSLP3 p3Red{0.f, 1.f, 0.5f};
+    const DisplayP3 back = convert<DisplayP3>(convert<XYZ>(p3Red));
+    CHECK_THAT(back.red(), WithinAbs(1., 1e-5));
+    CHECK_THAT(back.green(), WithinAbs(0., 1e-5));
+    const DisplayP3 viaSrgb = convert<DisplayP3>(convert<HSL>(p3Red));
+    CHECK(viaSrgb.green() > 0.1f);
+
+    // Between gamuts, the path goes through XYZ. A hue is relative to the
+    // primaries, so the same color has another hue in the HSL of another gamut
+    const HSL fromP3 = convert<HSL>(HSLP3{210.f, 0.5f, 0.5f, 0.25f});
+    CHECK(fromP3.alpha() == 0.25f);
+    CHECK_THAT(fromP3.hue(), WithinAbs(204.460031, 1e-3));
+    CHECK_THAT(fromP3.saturation(), WithinAbs(0.722798, 1e-4));
+    CHECK_THAT(fromP3.lightness(), WithinAbs(0.447602, 1e-4));
+}
+
+TEST_CASE("lighten works in the HSL of any RGB space", "[colors][cylindrical]")
+{
+    using aest::colors::lighten;
+
+    const DisplayP3 red{1.f, 0.f, 0.f};
+    const DisplayP3 light = lighten<HSLP3>(red, 0.5f);
+    CHECK(light == DisplayP3{1.f, 0.5f, 0.5f});
+}

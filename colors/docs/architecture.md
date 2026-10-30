@@ -35,12 +35,12 @@ one is expected, and the conversion between them is always explicit.
 
 ### Families of color spaces
 
-| Family   | Spaces                                                        | Channels                                                                  |
-|----------|---------------------------------------------------------------|---------------------------------------------------------------------------|
-| Encoded  | SRGB, DisplayP3                                               | RGB with a transfer function: what displays, files and CSS store          |
-| Linear   | LinSRGB, LinDisplayP3, LinRec2020, ACEScg, `Premultiplied<S>` | Proportional to light: blending, lighting and compositing belong here     |
-| Derived  | HSL, HSV                                                      | Cylindrical views of sRGB, for picking and adjusting colors               |
-| Absolute | XYZ                                                           | CIE 1931 tristimulus values, independent of any display: links the gamuts |
+| Family   | Spaces                                                        | Channels                                                                    |
+|----------|---------------------------------------------------------------|-----------------------------------------------------------------------------|
+| Encoded  | SRGB, DisplayP3                                               | RGB with a transfer function: what displays, files and CSS store            |
+| Linear   | LinSRGB, LinDisplayP3, LinRec2020, ACEScg, `Premultiplied<S>` | Proportional to light: blending, lighting and compositing belong here       |
+| Derived  | HSL, HSV, `BasicHSL<S>`, `BasicHSV<S>`                        | Cylindrical views of an encoded RGB space, for picking and adjusting colors |
+| Absolute | XYZ                                                           | CIE 1931 tristimulus values, independent of any display: links the gamuts   |
 
 ### Ranges
 
@@ -112,6 +112,8 @@ XYZ                                  root, CIE 1931 relative to D65
 │       └── HSV                      hue, saturation, value
 ├── LinDisplayP3                     matrix of gamut::DisplayP3
 │   └── DisplayP3                    tf::SRGB
+│       ├── HSL<DisplayP3>           hue, saturation, lightness
+│       └── HSV<DisplayP3>           hue, saturation, value
 ├── LinRec2020                       matrix of gamut::Rec2020
 └── ACEScg                           matrix of gamut::AP1, Bradford to D65
 ```
@@ -119,7 +121,9 @@ XYZ                                  root, CIE 1931 relative to D65
 Every `BasicRGB<G, tf::Linear>` is a child of XYZ, and every other
 `BasicRGB<G, T>` a child of `BasicRGB<G, tf::Linear>`: the links and their
 converters are partial specializations, so a new gamut or transfer
-function joins the tree without code of its own.
+function joins the tree without code of its own. Likewise `BasicHSL<S>` and
+`BasicHSV<S>` are children of the encoded space `S`, with the HSL ↔ HSV
+shortcut between the two over the same `S`.
 
 A conversion takes one of two routes:
 
@@ -140,9 +144,10 @@ Each step goes through a constructor, so it clamps to the range of the
 intermediate space. HDR light is lost wherever a path crosses SRGB: LinSRGB
 values above 1 clip to 1 there. Colors outside a gamut lose their negative
 channels where a path enters its linear space from XYZ, as P3 red does in
-LinSRGB. lighten() of a LinSRGB color works in HSL,
-so it clips them too, while mix() and the arithmetic operators stay in
-LinSRGB and keep them. Every hop also costs some float precision: a direct
+LinSRGB. lighten() works in HSL over SRGB by default, so it clips both HDR
+light and wider gamuts: `lighten<BasicHSL<DisplayP3>>(p3Color, t)` keeps P3
+colors. mix() and the arithmetic operators stay in linear light and keep HDR
+values. Every hop also costs some float precision: a direct
 shortcut is worth adding when a pair is converted often.
 
 ## Operations
@@ -175,7 +180,7 @@ and MSVC.
 | Compile time                                                | Run time only                  |
 |-------------------------------------------------------------|--------------------------------|
 | Construction, hex and byte packing, opacity(), `==`         | tf::SRGB encoding (`std::pow`) |
-| SRGB ↔ HSL ↔ HSV conversions                                | euclidean() (`std::sqrt`)      |
+| Encoded RGB ↔ HSL ↔ HSV conversions                         | euclidean() (`std::sqrt`)      |
 | lighten(), darken() and mix() when no step needs `<cmath>`  | Anything through an encoding   |
 | Premultiplied conversions, over() of linear colors          | contrast_ratio() (`std::pow`)  |
 | luminance() of linear colors                                |                                |

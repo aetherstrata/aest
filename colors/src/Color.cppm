@@ -7,8 +7,11 @@
  */
 module;
 #include <algorithm>
+#include <array>
 #include <concepts>
+#include <cstddef>
 #include <cstdint>
+#include <initializer_list>
 #include <string_view>
 export module aest.colors:color;
 
@@ -83,6 +86,23 @@ constexpr std::uint32_t pack(const std::uint8_t byte3,
 {
     return std::uint32_t{byte3} << 24 | std::uint32_t{byte2} << 16 | std::uint32_t{byte1} << 8
          | byte0;
+}
+
+/**
+ * @brief Concatenate names into a character array, for a color space name
+ *        built at compile time.
+ * @tparam Size The total length of @p parts
+ * @param[in] parts The names to join, in order
+ * @return The characters of @p parts, without a terminator.
+ */
+template <std::size_t Size>
+constexpr std::array<char, Size> join_names(const std::initializer_list<std::string_view> parts)
+{
+    std::array<char, Size> chars{};
+    auto out = chars.begin();
+    for (const std::string_view part : parts)
+        out = std::ranges::copy(part, out).out;
+    return chars;
 }
 
 /**
@@ -403,108 +423,6 @@ public:
      * @return The Z value
      */
     [[nodiscard]] constexpr float z() const noexcept { return _ch3; }
-    ///@}
-};
-
-/**
- * @brief A color as hue, saturation and lightness, over sRGB.
- *
- * The hue is wrapped to the [0, 360) range; saturation and lightness are
- * clamped to the 0-1 range. Convert to any other space with convert().
- */
-export class HSL final : public ColorBase<HSL>
-{
-public:
-    /** @brief Color space name, used by the std::formatter specialization. */
-    static constexpr std::string_view TYPE = "HSL";
-
-    /** @brief Default constructor initializes the color to opaque black (0, 0, 0, 1). */
-    constexpr HSL()
-        : ColorBase(1.0f, 0.0f, 0.0f, 0.0f)
-    {}
-
-    /**
-     * @brief Construct a color from floating-point HSLA values.
-     * @param[in] h Hue in degrees, wrapped to the 0-360 range
-     * @param[in] s Saturation value
-     * @param[in] l Lightness value
-     * @param[in] a Alpha channel value (default 1.0)
-     * @pre Every channel is finite: NaN and infinities are undefined behavior.
-     */
-    constexpr HSL(const float h, const float s, const float l, const float a = 1.0f)
-        : ColorBase(a, wrap_hue(h), clamp(s), clamp(l))
-    {}
-
-    ///@name Color Channels
-    ///@{
-    /**
-     * @brief Get the hue value in the 0-360 range.
-     * @return The color hue
-     */
-    [[nodiscard]] constexpr float hue() const noexcept { return _ch1; }
-
-    /**
-     * @brief Get the saturation value in the 0-1 range.
-     * @return The color saturation
-     */
-    [[nodiscard]] constexpr float saturation() const noexcept { return _ch2; }
-
-    /**
-     * @brief Get the lightness value in the 0-1 range.
-     * @return The color lightness
-     */
-    [[nodiscard]] constexpr float lightness() const noexcept { return _ch3; }
-    ///@}
-};
-
-/**
- * @brief A color as hue, saturation and value (brightness), over sRGB.
- *
- * The hue is wrapped to the [0, 360) range; saturation and value are
- * clamped to the 0-1 range. Convert to any other space with convert().
- */
-export class HSV final : public ColorBase<HSV>
-{
-public:
-    /** @brief Color space name, used by the std::formatter specialization. */
-    static constexpr std::string_view TYPE = "HSV";
-
-    /** @brief Default constructor initializes the color to opaque black (0, 0, 0, 1). */
-    constexpr HSV()
-        : ColorBase(1.0f, 0.0f, 0.0f, 0.0f)
-    {}
-
-    /**
-     * @brief Construct a color from floating-point HSVA values.
-     * @param[in] h Hue in degrees, wrapped to the 0-360 range
-     * @param[in] s Saturation value
-     * @param[in] v Brightness value
-     * @param[in] a Alpha channel value (default 1.0)
-     * @pre Every channel is finite: NaN and infinities are undefined behavior.
-     */
-    constexpr HSV(const float h, const float s, const float v, const float a = 1.0f)
-        : ColorBase(a, wrap_hue(h), clamp(s), clamp(v))
-    {}
-
-    ///@name Color Channels
-    ///@{
-    /**
-     * @brief Get the hue value in the 0-360 range.
-     * @return The color hue
-     */
-    [[nodiscard]] constexpr float hue() const noexcept { return _ch1; }
-
-    /**
-     * @brief Get the saturation value in the 0-1 range.
-     * @return The color saturation
-     */
-    [[nodiscard]] constexpr float saturation() const noexcept { return _ch2; }
-
-    /**
-     * @brief Get the brightness value in the 0-1 range.
-     * @return The color brightness
-     */
-    [[nodiscard]] constexpr float brightness() const noexcept { return _ch3; }
     ///@}
 };
 

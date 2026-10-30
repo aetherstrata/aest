@@ -15,6 +15,7 @@ export module aest.colors:converter;
 
 import aest.blas;
 import :color;
+import :cylindrical;
 import :gamut;
 import :transfer;
 
@@ -43,18 +44,20 @@ constexpr float hue_of(
 }
 
 /**
- * @brief Builds an sRGB color from a hue, a chroma and an offset, shared by
+ * @brief Builds an RGB color from a hue, a chroma and an offset, shared by
  *        the HSL and HSV conversions.
+ * @tparam RGB The encoded RGB space to build the color in
  * @param[in] hue The hue in degrees, in the [0, 360) range
  * @param[in] chroma Difference between the largest and smallest channel
  * @param[in] offset Value of the smallest channel
  * @param[in] alpha Alpha channel value
- * @return The SRGB color.
+ * @return The color in @p RGB.
  */
-constexpr SRGB rgb_from_hue(const float hue,
-                            const float chroma,
-                            const float offset,
-                            const float alpha)
+template <BoundedRGBSpace RGB>
+constexpr RGB rgb_from_hue(const float hue,
+                           const float chroma,
+                           const float offset,
+                           const float alpha)
 {
     // Distance from the middle of the current pair of 60 degree sectors;
     // std::fmod and std::fabs are constexpr only since C++23
@@ -94,7 +97,7 @@ constexpr SRGB rgb_from_hue(const float hue,
         b = second;
     }
 
-    return SRGB{r + offset, g + offset, b + offset, alpha};
+    return RGB{r + offset, g + offset, b + offset, alpha};
 }
 } // namespace aest::colors
 
@@ -321,49 +324,61 @@ struct ParentSpace<BasicRGB<Gamut, Transfer>>
     using type = BasicRGB<Gamut, tf::Linear>;
 };
 
-/** @brief HSL converts through SRGB. */
-template <>
-struct ParentSpace<HSL>
+/**
+ * @brief HSL converts through the RGB space it is a view of.
+ * @tparam RGB The encoded RGB space
+ */
+template <BoundedRGBSpace RGB>
+struct ParentSpace<BasicHSL<RGB>>
 {
     /** @brief The parent space. */
-    using type = SRGB;
+    using type = RGB;
 };
 
-/** @brief HSV converts through SRGB. */
-template <>
-struct ParentSpace<HSV>
+/**
+ * @brief HSV converts through the RGB space it is a view of.
+ * @tparam RGB The encoded RGB space
+ */
+template <BoundedRGBSpace RGB>
+struct ParentSpace<BasicHSV<RGB>>
 {
     /** @brief The parent space. */
-    using type = SRGB;
+    using type = RGB;
 };
 
-/** @brief Converts HSL to SRGB. */
-template <>
-struct Converter<SRGB, HSL>
+/**
+ * @brief Converts HSL to its RGB space.
+ * @tparam RGB The encoded RGB space
+ */
+template <BoundedRGBSpace RGB>
+struct Converter<RGB, BasicHSL<RGB>>
 {
     /**
-     * @brief Converts @p color to SRGB.
+     * @brief Converts @p color to @p RGB.
      * @param[in] color The color to convert
-     * @return The same color in SRGB, with the same alpha
+     * @return The same color in @p RGB, with the same alpha
      */
-    static constexpr SRGB convert(const HSL& color)
+    static constexpr RGB convert(const BasicHSL<RGB>& color)
     {
         const float l = color.lightness();
         const float c = 2 * std::min(l, 1 - l) * color.saturation();
-        return rgb_from_hue(color.hue(), c, l - c / 2, color.alpha());
+        return rgb_from_hue<RGB>(color.hue(), c, l - c / 2, color.alpha());
     }
 };
 
-/** @brief Converts SRGB to HSL. */
-template <>
-struct Converter<HSL, SRGB>
+/**
+ * @brief Converts an RGB space to its HSL.
+ * @tparam RGB The encoded RGB space
+ */
+template <BoundedRGBSpace RGB>
+struct Converter<BasicHSL<RGB>, RGB>
 {
     /**
      * @brief Converts @p color to HSL.
      * @param[in] color The color to convert
      * @return The same color in HSL, with the same alpha
      */
-    static constexpr HSL convert(const SRGB& color)
+    static constexpr BasicHSL<RGB> convert(const RGB& color)
     {
         const float r = color.red();
         const float g = color.green();
@@ -376,20 +391,23 @@ struct Converter<HSL, SRGB>
         const float l = std::midpoint(max, min);
         const float s = delta == 0 ? 0 : delta / (2 * std::min(l, 1 - l));
 
-        return HSL{hue_of(r, g, b, max, delta), s, l, color.alpha()};
+        return BasicHSL<RGB>{hue_of(r, g, b, max, delta), s, l, color.alpha()};
     }
 };
 
-/** @brief Converts SRGB to HSV. */
-template <>
-struct Converter<HSV, SRGB>
+/**
+ * @brief Converts an RGB space to its HSV.
+ * @tparam RGB The encoded RGB space
+ */
+template <BoundedRGBSpace RGB>
+struct Converter<BasicHSV<RGB>, RGB>
 {
     /**
      * @brief Converts @p color to HSV.
      * @param[in] color The color to convert
      * @return The same color in HSV, with the same alpha
      */
-    static constexpr HSV convert(const SRGB& color)
+    static constexpr BasicHSV<RGB> convert(const RGB& color)
     {
         const float r = color.red();
         const float g = color.green();
@@ -401,62 +419,73 @@ struct Converter<HSV, SRGB>
 
         const float s = max == 0.0f ? 0.0f : delta / max;
 
-        return HSV{hue_of(r, g, b, max, delta), s, max, color.alpha()};
+        return BasicHSV<RGB>{hue_of(r, g, b, max, delta), s, max, color.alpha()};
     }
 };
 
-/** @brief Converts HSV to SRGB. */
-template <>
-struct Converter<SRGB, HSV>
+/**
+ * @brief Converts HSV to its RGB space.
+ * @tparam RGB The encoded RGB space
+ */
+template <BoundedRGBSpace RGB>
+struct Converter<RGB, BasicHSV<RGB>>
 {
     /**
-     * @brief Converts @p color to SRGB.
+     * @brief Converts @p color to @p RGB.
      * @param[in] color The color to convert
-     * @return The same color in SRGB, with the same alpha
+     * @return The same color in @p RGB, with the same alpha
      */
-    static constexpr SRGB convert(const HSV& color)
+    static constexpr RGB convert(const BasicHSV<RGB>& color)
     {
         const float v = color.brightness();
         const float c = v * color.saturation();
-        return rgb_from_hue(color.hue(), c, v - c, color.alpha());
+        return rgb_from_hue<RGB>(color.hue(), c, v - c, color.alpha());
     }
 };
 
-/** @brief Converts HSL to HSV, a shortcut that keeps the hue exactly. */
-template <>
-struct Converter<HSV, HSL>
+/**
+ * @brief Converts HSL to HSV over the same RGB space, a shortcut that keeps
+ *        the hue exactly.
+ * @tparam RGB The encoded RGB space
+ */
+template <BoundedRGBSpace RGB>
+struct Converter<BasicHSV<RGB>, BasicHSL<RGB>>
 {
     /**
      * @brief Converts @p color to HSV, keeping the hue.
      * @param[in] color The color to convert
      * @return The same color in HSV, with the same alpha
      */
-    static constexpr HSV convert(const HSL& color)
+    static constexpr BasicHSV<RGB> convert(const BasicHSL<RGB>& color)
     {
         const float l = color.lightness();
         const float v = l + color.saturation() * std::min(l, 1 - l);
         const float s = v == 0 ? 0 : 2 * (1 - l / v);
 
-        return HSV{color.hue(), s, v, color.alpha()};
+        return BasicHSV<RGB>{color.hue(), s, v, color.alpha()};
     }
 };
 
-/** @brief Converts HSV to HSL, a shortcut that keeps the hue exactly. */
-template <>
-struct Converter<HSL, HSV>
+/**
+ * @brief Converts HSV to HSL over the same RGB space, a shortcut that keeps
+ *        the hue exactly.
+ * @tparam RGB The encoded RGB space
+ */
+template <BoundedRGBSpace RGB>
+struct Converter<BasicHSL<RGB>, BasicHSV<RGB>>
 {
     /**
      * @brief Converts @p color to HSL, keeping the hue.
      * @param[in] color The color to convert
      * @return The same color in HSL, with the same alpha
      */
-    static constexpr HSL convert(const HSV& color)
+    static constexpr BasicHSL<RGB> convert(const BasicHSV<RGB>& color)
     {
         const float v = color.brightness();
         const float l = v * (1 - color.saturation() / 2);
         const float s = l == 0 || l == 1 ? 0 : (v - l) / std::min(l, 1 - l);
 
-        return HSL{color.hue(), s, l, color.alpha()};
+        return BasicHSL<RGB>{color.hue(), s, l, color.alpha()};
     }
 };
 

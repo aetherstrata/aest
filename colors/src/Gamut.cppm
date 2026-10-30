@@ -7,7 +7,6 @@
  *        CIE XYZ, derived at compile time from chromaticities.
  */
 module;
-#include <algorithm>
 #include <array>
 #include <bit>
 #include <concepts>
@@ -196,11 +195,8 @@ inline constexpr Matrix3 XYZ_TO_RGB = blas::inverse(RGB_TO_XYZ<Gamut>);
  * @tparam Transfer The transfer function tag
  */
 template <RGBGamut Gamut, TransferFunction Transfer>
-inline constexpr auto RGB_NAME_CHARS = [] {
-    std::array<char, Transfer::PREFIX.size() + Gamut::NAME.size()> chars{};
-    std::ranges::copy(Gamut::NAME, std::ranges::copy(Transfer::PREFIX, chars.begin()).out);
-    return chars;
-}();
+inline constexpr auto RGB_NAME_CHARS =
+    join_names<Transfer::PREFIX.size() + Gamut::NAME.size()>({Transfer::PREFIX, Gamut::NAME});
 } // namespace aest::colors
 
 export namespace aest::colors
@@ -426,8 +422,7 @@ using ACEScg = BasicRGB<gamut::AP1, tf::Linear>;
 namespace aest::colors
 {
 /**
- * @brief The gamut and transfer function of a BasicRGB space; empty for
- *        other types.
+ * @brief The gamut and transfer function of a BasicRGB space; empty for other types.
  * @tparam T The type to inspect
  */
 template <typename T>

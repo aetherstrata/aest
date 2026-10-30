@@ -6,7 +6,6 @@
  *        Porter-Duff compositing.
  */
 module;
-#include <algorithm>
 #include <array>
 #include <concepts>
 #include <string_view>
@@ -49,13 +48,8 @@ class Premultiplied final : public ColorBase<Premultiplied<Space>>
     static constexpr std::string_view TYPE_PREFIX = "Premultiplied<";
 
     /** @brief The space name, `Premultiplied<` + `Space::TYPE` + `>`. */
-    static constexpr auto TYPE_CHARS = [] {
-        std::array<char, TYPE_PREFIX.size() + Space::TYPE.size() + 1> chars{};
-        auto out = std::ranges::copy(TYPE_PREFIX, chars.begin()).out;
-        out      = std::ranges::copy(Space::TYPE, out).out;
-        *out     = '>';
-        return chars;
-    }();
+    static constexpr auto TYPE_CHARS =
+        join_names<TYPE_PREFIX.size() + Space::TYPE.size() + 1>({TYPE_PREFIX, Space::TYPE, ">"});
 
 public:
     /** @brief Color space name, used by the std::formatter specialization. */

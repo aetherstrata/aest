@@ -12,6 +12,7 @@ export module aest.colors:operations;
 
 import :color;
 import :converter;
+import :cylindrical;
 import :gamut;
 import :transfer;
 import :space;
@@ -52,16 +53,19 @@ export namespace aest::colors
 template <ColorType Space>
 struct Lightness;
 
-/** @brief Lightness of HSL, stored in the 0-1 range. */
-template <>
-struct Lightness<HSL>
+/**
+ * @brief Lightness of HSL, stored in the 0-1 range.
+ * @tparam RGB The encoded RGB space of the HSL
+ */
+template <BoundedRGBSpace RGB>
+struct Lightness<BasicHSL<RGB>>
 {
     /**
      * @brief Get the lightness of @p color.
      * @param[in] color The color to read
      * @return The lightness in the 0-1 range.
      */
-    static constexpr float get(const HSL& color) noexcept { return color.lightness(); }
+    static constexpr float get(const BasicHSL<RGB>& color) noexcept { return color.lightness(); }
 
     /**
      * @brief Copy @p color with a new lightness.
@@ -69,9 +73,9 @@ struct Lightness<HSL>
      * @param[in] lightness The new lightness in the 0-1 range
      * @return The color with the same hue, saturation and alpha.
      */
-    static constexpr HSL set(const HSL& color, const float lightness)
+    static constexpr BasicHSL<RGB> set(const BasicHSL<RGB>& color, const float lightness)
     {
-        return HSL{color.hue(), color.saturation(), lightness, color.alpha()};
+        return BasicHSL<RGB>{color.hue(), color.saturation(), lightness, color.alpha()};
     }
 };
 

@@ -3,6 +3,7 @@ aest_add_library(colors
         src/Color.cppm
         src/Compositing.cppm
         src/Converter.cppm
+        src/Cylindrical.cppm
         src/Distance.cppm
         src/NamedColors.cppm
         src/Format.cppm
