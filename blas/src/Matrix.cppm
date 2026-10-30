@@ -49,6 +49,63 @@ constexpr Vector<T, Rows> multiply(const Matrix<T, Rows, Columns>& matrix,
             product[row] += matrix[row][column] * vector[column];
     return product;
 }
+
+/**
+ * @brief Multiplies two matrices.
+ * @tparam T The element type
+ * @tparam Rows The number of rows of @p lhs and of the result
+ * @tparam Inner The number of columns of @p lhs and rows of @p rhs
+ * @tparam Columns The number of columns of @p rhs and of the result
+ * @param[in] lhs The left-hand matrix
+ * @param[in] rhs The right-hand matrix
+ * @return The product `lhs * rhs`, which applies @p rhs first when used on a vector.
+ */
+template <typename T, std::size_t Rows, std::size_t Inner, std::size_t Columns>
+constexpr Matrix<T, Rows, Columns> multiply(const Matrix<T, Rows, Inner>& lhs,
+                                            const Matrix<T, Inner, Columns>& rhs)
+{
+    Matrix<T, Rows, Columns> product{};
+    for (std::size_t row = 0; row < Rows; ++row)
+        for (std::size_t column = 0; column < Columns; ++column)
+            for (std::size_t inner = 0; inner < Inner; ++inner)
+                product[row][column] += lhs[row][inner] * rhs[inner][column];
+    return product;
+}
+
+/**
+ * @brief Swaps the rows and columns of a matrix.
+ * @tparam T The element type
+ * @tparam Rows The number of rows of @p matrix
+ * @tparam Columns The number of columns of @p matrix
+ * @param[in] matrix The matrix to transpose
+ * @return The matrix whose rows are the columns of @p matrix.
+ */
+template <typename T, std::size_t Rows, std::size_t Columns>
+constexpr Matrix<T, Columns, Rows> transpose(const Matrix<T, Rows, Columns>& matrix)
+{
+    Matrix<T, Columns, Rows> result{};
+    for (std::size_t row = 0; row < Rows; ++row)
+        for (std::size_t column = 0; column < Columns; ++column)
+            result[column][row] = matrix[row][column];
+    return result;
+}
+
+/**
+ * @brief Builds a square matrix with a vector on its diagonal and 0 elsewhere.
+ * @tparam T The element type
+ * @tparam Size The number of elements of @p vector, and of rows and columns
+ * @param[in] vector The diagonal
+ * @return The matrix that scales each element of a vector by the matching
+ *         element of @p vector.
+ */
+template <typename T, std::size_t Size>
+constexpr Matrix<T, Size, Size> diagonal(const Vector<T, Size>& vector)
+{
+    Matrix<T, Size, Size> result{};
+    for (std::size_t index = 0; index < Size; ++index)
+        result[index][index] = vector[index];
+    return result;
+}
 } // namespace aest::blas
 
 namespace aest::blas

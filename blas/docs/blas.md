@@ -22,7 +22,9 @@ constexpr Matrix<double, 3, 3> scale = {{{2, 0, 0}, {0, 4, 0}, {0, 0, 8}}};
 
 | Function | Does | Sizes |
 |----------|------|-------|
-| aest::blas::multiply() | Matrix times column vector | Any `Rows` × `Columns` |
+| aest::blas::multiply() | Matrix times column vector, or matrix times matrix | Any matching sizes |
+| aest::blas::transpose() | Swap rows and columns | Any |
+| aest::blas::diagonal() | Square matrix with a vector on its diagonal | Any |
 | aest::blas::determinant() | Determinant, by cofactor expansion | 3×3 |
 | aest::blas::inverse() | Inverse, through the adjugate; floating-point only | 3×3 |
 

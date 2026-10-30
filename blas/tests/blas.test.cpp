@@ -31,6 +31,40 @@ TEST_CASE("multiply takes a matrix times a column vector", "[blas]")
     STATIC_REQUIRE(multiply(wide, ones) == Vector<std::int32_t, 2>{6, 15});
 }
 
+TEST_CASE("multiply takes the product of two matrices", "[blas]")
+{
+    using aest::blas::multiply;
+
+    constexpr Matrix<std::int32_t, 2, 3> lhs = {{{1, 2, 3}, {4, 5, 6}}};
+    constexpr Matrix<std::int32_t, 3, 2> rhs = {{{7, 8}, {9, 10}, {11, 12}}};
+    STATIC_REQUIRE(multiply(lhs, rhs) == Matrix<std::int32_t, 2, 2>{{{58, 64}, {139, 154}}});
+
+    // The product applies the right-hand matrix first
+    constexpr Matrix<std::int32_t, 2, 2> swap  = {{{0, 1}, {1, 0}}};
+    constexpr Matrix<std::int32_t, 2, 2> twice = {{{2, 0}, {0, 2}}};
+    constexpr Vector<std::int32_t, 2> vector   = {1, 3};
+    STATIC_REQUIRE(multiply(multiply(swap, twice), vector)
+                   == multiply(swap, multiply(twice, vector)));
+}
+
+TEST_CASE("transpose swaps rows and columns", "[blas]")
+{
+    using aest::blas::transpose;
+
+    constexpr Matrix<std::int32_t, 2, 3> matrix = {{{1, 2, 3}, {4, 5, 6}}};
+    STATIC_REQUIRE(transpose(matrix) == Matrix<std::int32_t, 3, 2>{{{1, 4}, {2, 5}, {3, 6}}});
+    STATIC_REQUIRE(transpose(transpose(matrix)) == matrix);
+}
+
+TEST_CASE("diagonal puts a vector on the diagonal", "[blas]")
+{
+    using aest::blas::diagonal;
+
+    constexpr Vector<double, 3> scale = {2, 3, 4};
+    STATIC_REQUIRE(diagonal(scale) == Matrix<double, 3, 3>{{{2, 0, 0}, {0, 3, 0}, {0, 0, 4}}});
+    STATIC_REQUIRE(aest::blas::multiply(diagonal(scale), Vector<double, 3>{1, 1, 1}) == scale);
+}
+
 TEST_CASE("determinant of a 3x3 matrix", "[blas]")
 {
     using aest::blas::determinant;
