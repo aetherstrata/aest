@@ -45,6 +45,12 @@ by REFERENCE_WHITE_NITS first, as in `tf::PQ::encode(1000.f / REFERENCE_WHITE_NI
 - aest::colors::XYZ — CIE 1931 XYZ relative to D65, independent of any
   display's primaries: the root of the conversion tree. Y is the relative
   luminance, and the channels are not clamped.
+- aest::colors::OKLab, aest::colors::OKLCH — the perceptual space by Björn
+  Ottosson and its polar form: lightness L (1 for white), then a and b, or
+  chroma and hue. Equal distances look about equally different, and changing
+  OKLCH chroma or hue keeps the perceived lightness. The matrices are the
+  ones of CSS Color 4, so D65 white has no chroma. Not clamped, so they hold
+  HDR and out-of-gamut colors.
 - aest::colors::Premultiplied — a linear color with premultiplied alpha, such
   as `Premultiplied<LinSRGB>`, for compositing.
 - `from_hex()`, `from_rgba()`, `from_argb()` and `from_bytes()` build an SRGB

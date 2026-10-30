@@ -14,6 +14,7 @@ import :color;
 import :converter;
 import :cylindrical;
 import :gamut;
+import :oklab;
 import :transfer;
 import :space;
 
@@ -76,6 +77,52 @@ struct Lightness<BasicHSL<RGB>>
     static constexpr BasicHSL<RGB> set(const BasicHSL<RGB>& color, const float lightness)
     {
         return BasicHSL<RGB>{color.hue(), color.saturation(), lightness, color.alpha()};
+    }
+};
+
+/** @brief Lightness of OKLab, the perceived lightness, 1 being D65 white. */
+template <>
+struct Lightness<OKLab>
+{
+    /**
+     * @brief Get the lightness of @p color.
+     * @param[in] color The color to read
+     * @return The perceived lightness.
+     */
+    static constexpr float get(const OKLab& color) noexcept { return color.lightness(); }
+
+    /**
+     * @brief Copy @p color with a new lightness.
+     * @param[in] color The color to copy
+     * @param[in] lightness The new perceived lightness
+     * @return The color with the same a, b and alpha.
+     */
+    static constexpr OKLab set(const OKLab& color, const float lightness)
+    {
+        return OKLab{lightness, color.a(), color.b(), color.alpha()};
+    }
+};
+
+/** @brief Lightness of OKLCH, the perceived lightness, 1 being D65 white. */
+template <>
+struct Lightness<OKLCH>
+{
+    /**
+     * @brief Get the lightness of @p color.
+     * @param[in] color The color to read
+     * @return The perceived lightness.
+     */
+    static constexpr float get(const OKLCH& color) noexcept { return color.lightness(); }
+
+    /**
+     * @brief Copy @p color with a new lightness.
+     * @param[in] color The color to copy
+     * @param[in] lightness The new perceived lightness
+     * @return The color with the same chroma, hue and alpha.
+     */
+    static constexpr OKLCH set(const OKLCH& color, const float lightness)
+    {
+        return OKLCH{lightness, color.chroma(), color.hue(), color.alpha()};
     }
 };
 
@@ -190,6 +237,26 @@ struct Interpolation<XYZ>
      * @return The interpolated color.
      */
     static constexpr XYZ lerp(const XYZ& from, const XYZ& to, const float amount)
+    {
+        return lerp_channels(from, to, amount);
+    }
+};
+
+/**
+ * @brief Interpolation of OKLab, channel by channel: gradients with even
+ *        perceived steps, like CSS `color-mix(in oklab, …)`.
+ */
+template <>
+struct Interpolation<OKLab>
+{
+    /**
+     * @brief Interpolates the lightness, a, b and alpha of two colors.
+     * @param[in] from The color at @p amount 0
+     * @param[in] to The color at @p amount 1
+     * @param[in] amount Position between the two colors, in the 0-1 range
+     * @return The interpolated color.
+     */
+    static constexpr OKLab lerp(const OKLab& from, const OKLab& to, const float amount)
     {
         return lerp_channels(from, to, amount);
     }

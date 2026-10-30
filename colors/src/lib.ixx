@@ -12,6 +12,7 @@ export import :converter;
 export import :cylindrical;
 export import :distance;
 export import :named_colors;
+export import :oklab;
 export import :format;
 export import :gamut;
 export import :operations;

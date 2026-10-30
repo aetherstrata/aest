@@ -12,6 +12,7 @@ export module aest.colors:distance;
 import :color;
 import :converter;
 import :gamut;
+import :oklab;
 import :transfer;
 import :space;
 
@@ -68,6 +69,26 @@ struct Euclidean<BasicRGB<Gamut, Transfer>>
      */
     static float distance(const BasicRGB<Gamut, Transfer>& color1,
                           const BasicRGB<Gamut, Transfer>& color2)
+    {
+        return channel_distance(color1, color2);
+    }
+};
+
+/**
+ * @brief Euclidean distance in OKLab: ΔE_OK, the color difference of CSS
+ *        Color 4, where equal distances look about equally different.
+ */
+template <>
+struct Euclidean<OKLab>
+{
+    /**
+     * @brief Perceived difference between two colors, ignoring alpha.
+     * @param[in] color1 First color
+     * @param[in] color2 Second color
+     * @return The distance, 0 or greater: about 0.02 is just noticeable,
+     *         and black to white is 1.
+     */
+    static float distance(const OKLab& color1, const OKLab& color2)
     {
         return channel_distance(color1, color2);
     }

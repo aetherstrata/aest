@@ -6,6 +6,7 @@ aest_add_library(colors
         src/Cylindrical.cppm
         src/Distance.cppm
         src/NamedColors.cppm
+        src/OkLab.cppm
         src/Format.cppm
         src/Gamut.cppm
         src/Operations.cppm

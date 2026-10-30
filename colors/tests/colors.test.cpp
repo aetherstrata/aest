@@ -1576,3 +1576,107 @@ TEST_CASE("RGB9E5 shares one exponent", "[colors][packed]")
     CHECK_THAT(back.blue(), WithinAbs(0.25, 0x1p-7));
     CHECK(back.alpha() == 1.f);
 }
+
+namespace
+{
+using aest::colors::OKLab;
+using aest::colors::OKLCH;
+
+/**
+ * @brief Checks the channels of @p color against expected OKLab values.
+ * @param[in] color The color to check
+ * @param[in] l Expected lightness
+ * @param[in] a Expected a
+ * @param[in] b Expected b
+ */
+void check_oklab(const OKLab& color, const double l, const double a, const double b)
+{
+    CHECK_THAT(color.lightness(), WithinAbs(l, 1e-6));
+    CHECK_THAT(color.a(), WithinAbs(a, 1e-6));
+    CHECK_THAT(color.b(), WithinAbs(b, 1e-6));
+}
+} // namespace
+
+TEST_CASE("OKLab matches the CSS Color 4 reference", "[colors][oklab]")
+{
+    using aest::colors::convert;
+
+    STATIC_REQUIRE(OKLab::TYPE == "OKLab");
+    check_oklab(convert<OKLab>(LinSRGB{1.f, 1.f, 1.f}), 1., 0., 0.);
+    check_oklab(convert<OKLab>(LinSRGB{1.f, 0.f, 0.f}), 0.62795536, 0.22486307, 0.12584628);
+    check_oklab(convert<OKLab>(LinSRGB{0.f, 1.f, 0.f}), 0.86643962, -0.23388758, 0.17949845);
+    check_oklab(convert<OKLab>(SRGB::from_hex(0x00'00'FF)), 0.45201372, -0.03245698, -0.31152817);
+    check_oklab(convert<OKLab>(SRGB::from_hex(0xFF'FF'00)), 0.96798273, -0.07136908, 0.19856972);
+
+    // Grays have no chroma, and alpha passes through
+    const OKLab gray = convert<OKLab>(SRGB{0.5f, 0.5f, 0.5f, 0.25f});
+    CHECK_THAT(gray.a(), WithinAbs(0., 1e-6));
+    CHECK_THAT(gray.b(), WithinAbs(0., 1e-6));
+    CHECK(gray.alpha() == 0.25f);
+
+    // Unclamped: HDR light is brighter than white
+    CHECK(convert<OKLab>(LinSRGB{4.f, 4.f, 4.f}).lightness() > 1.f);
+}
+
+TEST_CASE("OKLCH is the polar form of OKLab", "[colors][oklab]")
+{
+    using aest::colors::convert;
+
+    STATIC_REQUIRE(OKLCH::TYPE == "OKLCH");
+    STATIC_REQUIRE(OKLCH{0.5f, -1.f, 370.f} == OKLCH{0.5f, 0.f, 10.f});
+
+    const OKLCH red = convert<OKLCH>(LinSRGB{1.f, 0.f, 0.f});
+    CHECK_THAT(red.lightness(), WithinAbs(0.62795536, 1e-6));
+    CHECK_THAT(red.chroma(), WithinAbs(0.25768330, 1e-6));
+    CHECK_THAT(red.hue(), WithinAbs(29.233880, 1e-4));
+
+    // Blue's hue is past 180 degrees, so it comes out wrapped, not negative
+    CHECK_THAT(convert<OKLCH>(LinSRGB{0.f, 0.f, 1.f}).hue(), WithinAbs(264.052023, 1e-4));
+}
+
+TEST_CASE("OKLab and OKLCH round-trip through the tree", "[colors][oklab]")
+{
+    using aest::colors::convert;
+
+    for (const SRGB color :
+         {SRGB::from_hex(0x33'99'CC), SRGB::from_hex(0xE0'40'10), SRGB{0.f, 0.f, 0.f}})
+    {
+        const SRGB viaLab = convert<SRGB>(convert<OKLab>(color));
+        const SRGB viaLch = convert<SRGB>(convert<OKLCH>(color));
+        CHECK_THAT(viaLab.red(), WithinAbs(color.red(), 1e-6));
+        CHECK_THAT(viaLab.blue(), WithinAbs(color.blue(), 1e-6));
+        CHECK_THAT(viaLch.green(), WithinAbs(color.green(), 1e-6));
+    }
+
+    // Wide-gamut and HDR colors survive too, since OKLab is unclamped
+    const LinDisplayP3 p3Red{1.f, 0.f, 0.f};
+    const LinDisplayP3 back = convert<LinDisplayP3>(convert<OKLCH>(p3Red));
+    CHECK_THAT(back.red(), WithinAbs(1., 1e-6));
+    CHECK_THAT(back.green(), WithinAbs(0., 1e-6));
+
+    STATIC_REQUIRE(aest::colors::ConvertibleTo<OKLCH, HSV>);
+}
+
+TEST_CASE("Operations work in OKLab and OKLCH", "[colors][oklab]")
+{
+    using aest::colors::convert;
+    using aest::colors::euclidean;
+    using aest::colors::lighten;
+    using aest::colors::mix;
+
+    // ΔE_OK: black to white is 1
+    CHECK_THAT(euclidean<OKLab>(SRGB{0.f, 0.f, 0.f}, SRGB{1.f, 1.f, 1.f}), WithinAbs(1., 1e-6));
+
+    // lighten in OKLCH moves the perceived lightness, keeping chroma and hue
+    const OKLCH lch{0.5f, 0.1f, 200.f};
+    const OKLCH light = lighten<OKLCH>(lch, 0.5f);
+    STATIC_REQUIRE(lighten<OKLCH>(OKLCH{0.5f, 0.1f, 200.f}, 0.5f) == OKLCH{0.75f, 0.1f, 200.f});
+    CHECK(light.chroma() == lch.chroma());
+
+    // mix in OKLab: the midpoint of black and white is perceived middle gray
+    const SRGB middle = mix<OKLab>(SRGB{0.f, 0.f, 0.f}, SRGB{1.f, 1.f, 1.f}, 0.5f);
+    CHECK_THAT(convert<OKLab>(middle).lightness(), WithinAbs(0.5, 1e-6));
+
+    // Linear operations default to LinSRGB for OKLab colors
+    STATIC_REQUIRE(std::is_same_v<aest::colors::LinearSpaceOf<OKLCH>::type, LinSRGB>);
+}
