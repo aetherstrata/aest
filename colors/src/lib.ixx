@@ -16,4 +16,5 @@ export import :format;
 export import :gamut;
 export import :operations;
 export import :space;
+export import :tonemap;
 export import :transfer;

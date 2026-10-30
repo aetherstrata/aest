@@ -10,6 +10,7 @@ aest_add_library(colors
         src/Gamut.cppm
         src/Operations.cppm
         src/Space.cppm
+        src/Tonemap.cppm
         src/Transfer.cppm
     DEPENDS aest::blas
 )

@@ -138,6 +138,23 @@ const SRGB text = SRGB::from_hex(0x777777);
 const bool readable = contrast_ratio(text, css::white) >= 4.5f; // false: 4.48
 ```
 
+## Tonemapping
+
+The operators in aest::colors::tonemap compress HDR linear light into the
+[0, 1] range of a display. Each takes and returns a color of any linear RGB
+space and keeps alpha.
+
+| Operator | Does |
+|----------|------|
+| aest::colors::tonemap::reinhard() | `c / (1 + c)` per channel: never clips, reaches white only at infinity |
+| aest::colors::tonemap::reinhard_extended() | `c (1 + c / w²) / (1 + c)` per channel: maps the white `w` to 1 |
+| aest::colors::tonemap::aces_fitted() | Stephen Hill's fit of the ACES RRT and sRGB ODT, in LinSRGB: filmic contrast, desaturated highlights, clamped to [0, 1] |
+
+```cpp
+const LinSRGB hdr{4.f, 2.f, 0.5f};
+const SRGB pixel = convert<SRGB>(tonemap::aces_fitted(hdr));
+```
+
 ## Design
 
 - @subpage colors_architecture — the type model, the conversion tree, how

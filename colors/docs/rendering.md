@@ -67,6 +67,32 @@ const SRGB pixel = convert<SRGB>(frame);
 A premultiplied color with alpha 0 converts back to transparent black: its
 light was multiplied away.
 
+## Tonemapping
+
+A scene can be brighter than a display: LinSRGB values above 1 clip to
+white when converted to SRGB, flattening highlights. A tonemapping operator
+from aest::colors::tonemap compresses them into [0, 1] first, so the
+typical pipeline is:
+
+```
+decode textures   SRGB -> LinSRGB (or a wider linear space)
+light and blend   LinSRGB, values above 1 allowed
+composite         Premultiplied<LinSRGB>, over()
+expose            color * exposure
+tonemap           tonemap::aces_fitted(), reinhard() or reinhard_extended()
+encode            LinSRGB -> SRGB, then pack for the framebuffer
+```
+
+```cpp
+LinSRGB frame = convert<LinSRGB>(accumulated) * exposure;
+const SRGB pixel = convert<SRGB>(tonemap::aces_fitted(frame));
+```
+
+reinhard() never clips but never reaches white; reinhard_extended() reaches
+white at a chosen value, such as the brightest light of the scene;
+aces_fitted() adds the contrast and highlight desaturation of film. Since
+the fit is defined on sRGB, it returns colors inside the sRGB gamut.
+
 ## HDR output
 
 HDR displays take a signal relative to an absolute luminance (PQ) or to the

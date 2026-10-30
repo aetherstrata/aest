@@ -1356,3 +1356,54 @@ TEST_CASE("HDR signals join the tree but not HSL", "[colors][transfer]")
     const Rec2100PQ pq{0.58f, 0.58f, 0.58f};
     CHECK_THAT(aest::colors::mix(pq, pq, 0.5f).red(), WithinAbs(0.58, 1e-06));
 }
+
+namespace
+{
+template <typename T>
+concept Tonemappable = requires(T color) { aest::colors::tonemap::reinhard(color); };
+} // namespace
+
+TEST_CASE("reinhard maps each channel into [0, 1)", "[colors][tonemap]")
+{
+    using aest::colors::tonemap::reinhard;
+
+    STATIC_REQUIRE(reinhard(LinSRGB{0.f, 1.f, 3.f, 0.5f}) == LinSRGB{0.f, 0.5f, 0.75f, 0.5f});
+    STATIC_REQUIRE(reinhard(LinDisplayP3{1000.f, 1000.f, 1000.f}).red() < 1.f);
+
+    STATIC_REQUIRE(Tonemappable<ACEScg>);
+    STATIC_REQUIRE_FALSE(Tonemappable<SRGB>);
+    STATIC_REQUIRE_FALSE(Tonemappable<XYZ>);
+}
+
+TEST_CASE("reinhard_extended maps white to 1", "[colors][tonemap]")
+{
+    using aest::colors::tonemap::reinhard_extended;
+
+    STATIC_REQUIRE(reinhard_extended(LinSRGB{4.f, 0.f, 1.f, 0.25f}, 4.f)
+                   == LinSRGB{1.f, 0.f, 0.53125f, 0.25f}); // 1 (1 + 1 / 16) / 2
+    STATIC_REQUIRE(reinhard_extended(LinSRGB{8.f, 8.f, 8.f}, 4.f).red() > 1.f);
+}
+
+TEST_CASE("aces_fitted follows the fit by Stephen Hill", "[colors][tonemap]")
+{
+    using aest::colors::tonemap::aces_fitted;
+
+    // Middle gray, reference white and a bright highlight, from the reference code
+    CHECK_THAT(aces_fitted(LinSRGB{0.18f, 0.18f, 0.18f}).red(), WithinAbs(0.10559125, 1e-6));
+    CHECK_THAT(aces_fitted(LinSRGB{1.f, 1.f, 1.f}).red(), WithinAbs(0.61911543, 1e-6));
+    CHECK_THAT(aces_fitted(LinSRGB{4.f, 4.f, 4.f}).blue(), WithinAbs(0.90900468, 1e-6));
+
+    const LinSRGB orange = aces_fitted(LinSRGB{1.f, 0.5f, 0.25f, 0.75f});
+    CHECK_THAT(orange.red(), WithinAbs(0.63499038, 1e-6));
+    CHECK_THAT(orange.green(), WithinAbs(0.38460008, 1e-6));
+    CHECK_THAT(orange.blue(), WithinAbs(0.20316036, 1e-6));
+    CHECK(orange.alpha() == 0.75f);
+
+    // Black stays black and highlights saturate at 1
+    STATIC_REQUIRE(aces_fitted(LinSRGB{0.f, 0.f, 0.f}) == LinSRGB{0.f, 0.f, 0.f});
+    STATIC_REQUIRE(aces_fitted(LinSRGB{100.f, 100.f, 100.f}) == LinSRGB{1.f, 1.f, 1.f});
+
+    // Other linear spaces go through LinSRGB and come back in their own type
+    const ACEScg gray = aces_fitted(aest::colors::convert<ACEScg>(LinSRGB{1.f, 1.f, 1.f}));
+    CHECK_THAT(aest::colors::convert<LinSRGB>(gray).green(), WithinAbs(0.61911543, 1e-6));
+}
