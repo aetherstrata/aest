@@ -6,11 +6,13 @@
  */
 
 #include <algorithm>
+#include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <cmath>
 #include <cstdint>
 #include <format>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -1406,4 +1408,171 @@ TEST_CASE("aces_fitted follows the fit by Stephen Hill", "[colors][tonemap]")
     // Other linear spaces go through LinSRGB and come back in their own type
     const ACEScg gray = aces_fitted(aest::colors::convert<ACEScg>(LinSRGB{1.f, 1.f, 1.f}));
     CHECK_THAT(aest::colors::convert<LinSRGB>(gray).green(), WithinAbs(0.61911543, 1e-6));
+}
+
+namespace
+{
+using aest::colors::from_half;
+using aest::colors::to_half;
+
+template <typename T>
+concept UnormPackable = requires(T color) { aest::colors::pack_rgba8(color); };
+
+template <typename T>
+concept FloatPackable = requires(T color) { aest::colors::pack_rgba16f(color); };
+} // namespace
+
+TEST_CASE("to_half rounds to nearest even", "[colors][packed]")
+{
+    STATIC_REQUIRE(to_half(1.f) == 0x3C00);
+    STATIC_REQUIRE(to_half(-2.f) == 0xC000);
+    STATIC_REQUIRE(to_half(0.1f) == 0x2E66);
+    STATIC_REQUIRE(to_half(0.f) == 0x0000);
+    STATIC_REQUIRE(to_half(-0.f) == 0x8000);
+
+    // Ties go to the even mantissa
+    STATIC_REQUIRE(to_half(1.f + 0x1p-11f) == 0x3C00);
+    STATIC_REQUIRE(to_half(1.f + 0x3p-11f) == 0x3C02);
+
+    // Largest finite, and rounding past it to infinity
+    STATIC_REQUIRE(to_half(65504.f) == 0x7BFF);
+    STATIC_REQUIRE(to_half(65519.f) == 0x7BFF);
+    STATIC_REQUIRE(to_half(65520.f) == 0x7C00);
+
+    // Subnormals: the smallest, a tie to even at half of it, and 1.5 of it
+    STATIC_REQUIRE(to_half(0x1p-24f) == 0x0001);
+    STATIC_REQUIRE(to_half(0x1p-25f) == 0x0000);
+    STATIC_REQUIRE(to_half(0x3p-25f) == 0x0002);
+    STATIC_REQUIRE(to_half(0x1p-14f) == 0x0400); // smallest normal
+
+    // Infinities keep their sign, NaN becomes the quiet NaN
+    STATIC_REQUIRE(to_half(std::numeric_limits<float>::infinity()) == 0x7C00);
+    STATIC_REQUIRE(to_half(-std::numeric_limits<float>::infinity()) == 0xFC00);
+    STATIC_REQUIRE(to_half(std::numeric_limits<float>::quiet_NaN()) == 0x7E00);
+}
+
+TEST_CASE("from_half is exact and inverts to_half", "[colors][packed]")
+{
+    STATIC_REQUIRE(from_half(0x3C00) == 1.f);
+    STATIC_REQUIRE(from_half(0x7BFF) == 65504.f);
+    STATIC_REQUIRE(from_half(0x0001) == 0x1p-24f);
+    STATIC_REQUIRE(from_half(0x8000) == 0.f);
+    CHECK(std::isinf(from_half(0xFC00)));
+    CHECK(from_half(0xFC00) < 0.f);
+    CHECK(std::isnan(from_half(0x7E00)));
+
+    // Every half that is not NaN survives the round trip bit for bit
+    for (std::uint32_t bits = 0; bits <= 0xFFFF; ++bits)
+    {
+        const auto half = static_cast<std::uint16_t>(bits);
+        if ((half & 0x7C00) == 0x7C00 && (half & 0x03FF) != 0)
+            continue;
+        REQUIRE(to_half(from_half(half)) == half);
+    }
+}
+
+TEST_CASE("RGBA8 and RGB10A2 store unorm channels", "[colors][packed]")
+{
+    using aest::colors::pack_rgb10a2;
+    using aest::colors::pack_rgba8;
+    using aest::colors::unpack_rgb10a2;
+    using aest::colors::unpack_rgba8;
+    using Bytes = std::array<std::uint8_t, 4>;
+
+    // Bytes in memory order, the color's own encoding stored as is
+    constexpr SRGB color = SRGB::from_rgba(0x33'66'99'80);
+    STATIC_REQUIRE(pack_rgba8(color) == Bytes{0x33, 0x66, 0x99, 0x80});
+    STATIC_REQUIRE(unpack_rgba8<SRGB>(Bytes{0x33, 0x66, 0x99, 0x80}) == color);
+    STATIC_REQUIRE(pack_rgba8(LinSRGB{2.f, 0.5f, 0.f}) == Bytes{0xFF, 0x80, 0x00, 0xFF});
+
+    // Red in the low bits, alpha in the top two
+    STATIC_REQUIRE(pack_rgb10a2(SRGB{1.f, 0.f, 0.f}) == 0xC000'03FFu);
+    STATIC_REQUIRE(pack_rgb10a2(SRGB{0.f, 1.f, 0.f, 0.f}) == 0x000F'FC00u);
+    STATIC_REQUIRE(pack_rgb10a2(SRGB{0.f, 0.f, 1.f, 0.f}) == 0x3FF0'0000u);
+    STATIC_REQUIRE(pack_rgb10a2(SRGB{0.5f, 0.5f, 0.5f, 0.5f})
+                   == (512u | 512u << 10 | 512u << 20 | 2u << 30));
+
+    // Round trips within half a step of each format
+    const LinDisplayP3 linear{0.3f, 0.6f, 0.9f, 0.4f};
+    const LinDisplayP3 back8 = unpack_rgba8<LinDisplayP3>(pack_rgba8(linear));
+    CHECK_THAT(back8.green(), WithinAbs(0.6, 0.5 / 255));
+    const LinDisplayP3 back10 = unpack_rgb10a2<LinDisplayP3>(pack_rgb10a2(linear));
+    CHECK_THAT(back10.blue(), WithinAbs(0.9, 0.5 / 1023));
+    CHECK(back10.alpha() == 1.f / 3.f);
+
+    STATIC_REQUIRE(UnormPackable<DisplayP3>);
+    STATIC_REQUIRE(UnormPackable<aest::colors::Premultiplied<LinSRGB>>);
+    STATIC_REQUIRE_FALSE(UnormPackable<HSL>);
+    STATIC_REQUIRE_FALSE(UnormPackable<XYZ>);
+}
+
+TEST_CASE("RGBA16F stores halves and never overflows to infinity", "[colors][packed]")
+{
+    using aest::colors::pack_rgba16f;
+    using aest::colors::unpack_rgba16f;
+    using Halves = std::array<std::uint16_t, 4>;
+
+    STATIC_REQUIRE(pack_rgba16f(LinSRGB{1.f, 0.5f, 70000.f, 0.25f})
+                   == Halves{0x3C00, 0x3800, 0x7BFF, 0x3400});
+    STATIC_REQUIRE(unpack_rgba16f<LinSRGB>(Halves{0x3C00, 0x3800, 0x4400, 0x3400})
+                   == LinSRGB{1.f, 0.5f, 4.f, 0.25f});
+
+    using PremulLinear = aest::colors::Premultiplied<LinSRGB>;
+    STATIC_REQUIRE(pack_rgba16f(PremulLinear{0.5f, 0.25f, 0.f, 0.5f})
+                   == Halves{0x3800, 0x3400, 0x0000, 0x3800});
+
+    STATIC_REQUIRE(FloatPackable<ACEScg>);
+    STATIC_REQUIRE_FALSE(FloatPackable<SRGB>);
+}
+
+TEST_CASE("R11G11B10F stores unsigned small floats", "[colors][packed]")
+{
+    using aest::colors::pack_r11g11b10f;
+    using aest::colors::unpack_r11g11b10f;
+
+    // 1.0 is exponent 15 with an empty mantissa, in each field
+    STATIC_REQUIRE(pack_r11g11b10f(LinSRGB{1.f, 1.f, 1.f})
+                   == (0x3C0u | 0x3C0u << 11 | 0x1E0u << 22));
+    STATIC_REQUIRE(pack_r11g11b10f(LinSRGB{0.f, 0.f, 0.f}) == 0u);
+
+    // Clamped to the largest finite value of each field, never infinity
+    constexpr LinSRGB clamped =
+        unpack_r11g11b10f<LinSRGB>(pack_r11g11b10f(LinSRGB{1e6f, 1e6f, 1e6f}));
+    STATIC_REQUIRE(clamped == LinSRGB{65024.f, 65024.f, 64512.f});
+
+    // Round trips within half a step: 6 and 5 mantissa bits, alpha dropped
+    for (const float value : {0.001f, 0.18f, 1.f, 3.7f, 200.f})
+    {
+        const LinSRGB back =
+            unpack_r11g11b10f<LinSRGB>(pack_r11g11b10f(LinSRGB{value, value, value, 0.5f}));
+        CHECK_THAT(back.red(), WithinRel(value, 0x1p-7f));
+        CHECK_THAT(back.blue(), WithinRel(value, 0x1p-6f));
+        CHECK(back.alpha() == 1.f);
+    }
+}
+
+TEST_CASE("RGB9E5 shares one exponent", "[colors][packed]")
+{
+    using aest::colors::pack_rgb9e5;
+    using aest::colors::unpack_rgb9e5;
+
+    // White: mantissas of 256 under the exponent of 1.0
+    STATIC_REQUIRE(pack_rgb9e5(LinSRGB{1.f, 1.f, 1.f})
+                   == (256u | 256u << 9 | 256u << 18 | 16u << 27));
+    STATIC_REQUIRE(pack_rgb9e5(LinSRGB{0.f, 0.f, 0.f}) == 0u);
+
+    // A largest channel that rounds up to 512 moves to the next exponent
+    STATIC_REQUIRE(pack_rgb9e5(LinSRGB{0.9995f, 0.f, 0.f}) == (256u | 16u << 27));
+
+    // The largest value fits, anything above clamps to it
+    constexpr LinSRGB top = unpack_rgb9e5<LinSRGB>(pack_rgb9e5(LinSRGB{1e6f, 0.f, 0.f}));
+    STATIC_REQUIRE(top.red() == 65408.f);
+
+    // Channels keep precision relative to the largest one
+    const LinSRGB color{4.f, 1.f, 0.25f, 0.5f};
+    const LinSRGB back = unpack_rgb9e5<LinSRGB>(pack_rgb9e5(color));
+    CHECK_THAT(back.red(), WithinAbs(4., 0x1p-7));
+    CHECK_THAT(back.green(), WithinAbs(1., 0x1p-7));
+    CHECK_THAT(back.blue(), WithinAbs(0.25, 0x1p-7));
+    CHECK(back.alpha() == 1.f);
 }

@@ -93,6 +93,23 @@ white at a chosen value, such as the brightest light of the scene;
 aces_fitted() adds the contrast and highlight desaturation of film. Since
 the fit is defined on sRGB, it returns colors inside the sRGB gamut.
 
+## Choosing a packed format
+
+The last step writes the pixel in the framebuffer's format; the
+`pack_*()` functions produce its bits.
+
+| Data | Format | Why |
+|------|--------|-----|
+| Display-referred color, tonemapped | `pack_rgba8(SRGB)` into `R8G8B8A8_SRGB` | The encoding spends the 256 levels where the eye sees steps |
+| Display-referred, 10-bit or HDR10 output | `pack_rgb10a2()` of SRGB or Rec2100PQ | 1024 levels per channel; alpha only 2 bits |
+| HDR scene light, with alpha | `pack_rgba16f()` into `R16G16B16A16_SFLOAT` | Linear values up to 65504 at 11-bit precision, premultiplied alpha included |
+| HDR scene light, opaque | `pack_r11g11b10f()` | Half the size of RGBA16F; 6-bit and 5-bit mantissas, so slight banding and hue shifts |
+| HDR light probes, environment maps | `pack_rgb9e5()` | 9-bit mantissas under one exponent: precise for the brightest channel, coarse for much dimmer ones |
+| Linear non-color data: masks, roughness | `pack_rgba8(LinSRGB)` into `R8G8B8A8_UNORM` | Stored as is, without the sRGB curve |
+
+Never store linear light in 8-bit unorm: 256 evenly spaced levels band
+visibly in the shadows, which is what the sRGB encoding is for.
+
 ## HDR output
 
 HDR displays take a signal relative to an absolute luminance (PQ) or to the

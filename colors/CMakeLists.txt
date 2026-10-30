@@ -9,6 +9,7 @@ aest_add_library(colors
         src/Format.cppm
         src/Gamut.cppm
         src/Operations.cppm
+        src/Packed.cppm
         src/Space.cppm
         src/Tonemap.cppm
         src/Transfer.cppm
@@ -17,4 +18,4 @@ aest_add_library(colors
 
 add_subdirectory(tests)
 
-aest_add_examples(colors SOURCES examples/basic.cpp)
+aest_add_examples(colors SOURCES examples/basic.cpp examples/hdr.cpp)

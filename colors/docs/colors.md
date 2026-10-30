@@ -155,6 +155,32 @@ const LinSRGB hdr{4.f, 2.f, 0.5f};
 const SRGB pixel = convert<SRGB>(tonemap::aces_fitted(hdr));
 ```
 
+## Packed formats
+
+Functions to pack a color into the pixel formats of GPUs and back, with the
+bit layouts of Vulkan and Direct3D. Each `pack_*()` takes a color and
+returns the stored bits; each `unpack_*<Color>()` takes the bits and the
+color type to read them as. They are all `constexpr`.
+
+| Functions | Vulkan format | Layout | Takes |
+|-----------|---------------|--------|-------|
+| aest::colors::pack_rgba8(), aest::colors::unpack_rgba8() | `R8G8B8A8_UNORM`, `R8G8B8A8_SRGB` | 4 bytes R, G, B, A, in memory order | Any RGB space |
+| aest::colors::pack_rgb10a2(), aest::colors::unpack_rgb10a2() | `A2B10G10R10_UNORM_PACK32` | R bits 0-9, G 10-19, B 20-29, A 30-31 | Any RGB space |
+| aest::colors::pack_rgba16f(), aest::colors::unpack_rgba16f() | `R16G16B16A16_SFLOAT` | 4 halves R, G, B, A, in memory order | Linear RGB |
+| aest::colors::pack_r11g11b10f(), aest::colors::unpack_r11g11b10f() | `B10G11R11_UFLOAT_PACK32` | R bits 0-10, G 11-21, B 22-31, no alpha | Linear RGB |
+| aest::colors::pack_rgb9e5(), aest::colors::unpack_rgb9e5() | `E5B9G9R9_UFLOAT_PACK32` | R, G, B mantissas in bits 0-26, shared exponent 27-31, no alpha | Linear RGB |
+
+The unorm formats clamp each channel to [0, 1] and store the color's own
+encoding: pack SRGB for an `_SRGB` format, a linear space for `_UNORM` data.
+The float formats clamp to their largest finite value, so a color never
+becomes infinite, and round to nearest even. Every format also takes the
+premultiplied form of a linear space, `Premultiplied<LinSRGB>`.
+aest::colors::PackableRGB and aest::colors::PackableLinearRGB name the
+accepted types.
+
+aest::colors::to_half() and aest::colors::from_half() convert single floats
+to and from IEEE 754 halves, with IEEE rounding, infinities and NaN.
+
 ## Design
 
 - @subpage colors_architecture — the type model, the conversion tree, how

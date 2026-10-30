@@ -203,6 +203,7 @@ and MSVC.
 | luminance() of linear colors                               |                                                       |
 | Linear RGB ↔ XYZ (matrices derived at compile time)        |                                                       |
 | Tonemapping operators                                      |                                                       |
+| Packing and unpacking, to_half() and from_half()           |                                                       |
 
 A function marked `constexpr` whose path reaches a run-time step simply
 cannot be used in a constant expression for those arguments: mix() of two

@@ -15,6 +15,7 @@ export import :named_colors;
 export import :format;
 export import :gamut;
 export import :operations;
+export import :packed;
 export import :space;
 export import :tonemap;
 export import :transfer;

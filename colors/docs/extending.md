@@ -86,6 +86,17 @@ HSV over it are rejected. Mark `encode` and `decode` `constexpr` only if
 they avoid `<cmath>`. Test
 known encoded values and the round trip through the linear space.
 
+## Adding a packed format
+
+Write a `pack_<format>()` and an `unpack_<format><Color>()` pair, constrained
+on aest::colors::PackableRGB for unorm formats or
+aest::colors::PackableLinearRGB for float ones, reading channels through
+`ch1()`, `ch2()`, `ch3()` and `alpha()` so the premultiplied form works too.
+Clamp to the range of the format first, so a color never packs to an
+infinity or a wrapped integer. Document the bit layout and the matching
+Vulkan format, and test known bit patterns and the round trip within half a
+step of the format.
+
 ## Adding an operation
 
 1. **Write the trait.** Declare a class template over the color space, left
