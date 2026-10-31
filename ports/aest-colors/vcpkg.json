@@ -1,14 +1,14 @@
 {
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "aest-colors",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Color types and conversions (C++20 module aest.colors).",
   "homepage": "https://github.com/aetherstrata/aest",
   "license": "MIT",
   "dependencies": [
     {
       "name": "aest-blas",
-      "version>=": "0.0.1"
+      "version>=": "0.1.0"
     },
     {
       "name": "vcpkg-cmake",
