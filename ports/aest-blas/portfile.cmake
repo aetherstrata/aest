@@ -8,7 +8,7 @@ else()
     vcpkg_from_git(
         OUT_SOURCE_PATH SOURCE_PATH
         URL https://github.com/aetherstrata/aest
-        REF 0a5dbb0e011006c507d580738096d0c477e568a0 # commit of release v0.0.1
+        REF 027a0674d95db21c28da4e6370ce6158fe4ef0dc # commit of release v0.1.0
         HEAD_REF main)
 endif()
 
