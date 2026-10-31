@@ -80,7 +80,7 @@ An RGB space is fixed by two independent choices, each a tag type:
   and HSV, leaves them out.
 
 `BasicRGB<Gamut, Transfer>` combines them, and the aliases name the usual
-pairs. aest::colors::RGB_NAME builds the `TYPE` from the tags, as the transfer
+pairs. aest::colors::RGBName builds the `TYPE` from the tags, as the transfer
 prefix then the gamut name (`Lin` + `SRGB`), and is specialized where a space
 has its own name, as ACEScg does.
 

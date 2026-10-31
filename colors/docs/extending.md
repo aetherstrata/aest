@@ -63,9 +63,10 @@ using LinAdobeRGB = aest::colors::BasicRGB<AdobeRGBGamut, aest::colors::tf::Line
 ```
 
 A white point other than D65 is adapted to it with the Bradford transform.
-Specialize aest::colors::RGB_NAME when the space has a name of its own
-rather than the transfer prefix and the gamut name. Test the matrix against
-the published one, and that white maps to the D65 white of XYZ.
+Specialize aest::colors::RGBName, with a `VALUE` member, when the space has
+a name of its own rather than the transfer prefix and the gamut name. Test
+the matrix against the published one, and that white maps to the D65 white
+of XYZ.
 
 ## Adding a transfer function
 

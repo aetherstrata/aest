@@ -206,20 +206,36 @@ inline constexpr auto RGB_NAME_CHARS =
  * @tparam Transfer The transfer function tag
  */
 export template <RGBGamut Gamut, TransferFunction Transfer>
-inline constexpr std::string_view RGB_NAME{RGB_NAME_CHARS<Gamut, Transfer>.data(),
-                                           RGB_NAME_CHARS<Gamut, Transfer>.size()};
+struct RGBName
+{
+    /** @brief The name. */
+    static constexpr std::string_view VALUE{RGB_NAME_CHARS<Gamut, Transfer>.data(),
+                                            RGB_NAME_CHARS<Gamut, Transfer>.size()};
+};
 
 /** @brief Linear AP1 goes by the name of its ACES working space. */
 template <>
-inline constexpr std::string_view RGB_NAME<gamut::AP1, tf::Linear> = "ACEScg";
+struct RGBName<gamut::AP1, tf::Linear>
+{
+    /** @brief The name. */
+    static constexpr std::string_view VALUE = "ACEScg";
+};
 
 /** @brief Rec. 2020 with PQ is the PQ space of Rec. 2100. */
 template <>
-inline constexpr std::string_view RGB_NAME<gamut::Rec2020, tf::PQ> = "Rec2100PQ";
+struct RGBName<gamut::Rec2020, tf::PQ>
+{
+    /** @brief The name. */
+    static constexpr std::string_view VALUE = "Rec2100PQ";
+};
 
 /** @brief Rec. 2020 with HLG is the HLG space of Rec. 2100. */
 template <>
-inline constexpr std::string_view RGB_NAME<gamut::Rec2020, tf::HLG> = "Rec2100HLG";
+struct RGBName<gamut::Rec2020, tf::HLG>
+{
+    /** @brief The name. */
+    static constexpr std::string_view VALUE = "Rec2100HLG";
+};
 
 /** @brief Empty base standing in for ColorArithmetic in encoded RGB spaces. */
 struct NoArithmetic
@@ -253,7 +269,7 @@ class BasicRGB final : public ColorBase<BasicRGB<Gamut, Transfer>>,
 
 public:
     /** @brief Color space name, used by the std::formatter specialization. */
-    static constexpr std::string_view TYPE = RGB_NAME<Gamut, Transfer>;
+    static constexpr std::string_view TYPE = RGBName<Gamut, Transfer>::VALUE;
 
     /** @brief Default constructor initializes the color to opaque black (0, 0, 0, 1). */
     constexpr BasicRGB()
