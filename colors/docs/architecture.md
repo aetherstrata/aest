@@ -37,7 +37,7 @@ one is expected, and the conversion between them is always explicit.
 
 | Family     | Spaces                                                        | Channels                                                                        |
 |------------|---------------------------------------------------------------|---------------------------------------------------------------------------------|
-| Encoded    | SRGB, DisplayP3, Rec2100PQ, Rec2100HLG                        | RGB with a transfer function: what displays, files and CSS store                |
+| Encoded    | SRGB, DisplayP3, Rec709, Rec2020, Rec2100PQ, Rec2100HLG       | RGB with a transfer function: what displays, files and CSS store                |
 | Linear     | LinSRGB, LinDisplayP3, LinRec2020, ACEScg, `Premultiplied<S>` | Proportional to light: blending, lighting and compositing belong here           |
 | Derived    | HSL, HSV, `BasicHSL<S>`, `BasicHSV<S>`                        | Cylindrical views of an encoded RGB space, for picking and adjusting colors     |
 | Absolute   | XYZ                                                           | CIE 1931 tristimulus values, independent of any display: links the gamuts       |
@@ -73,8 +73,9 @@ An RGB space is fixed by two independent choices, each a tag type:
 - the **transfer function**, in aest::colors::tf: how a channel value
   encodes linear light, and the range it is clamped to, checked by
   aest::colors::TransferFunction. tf::Linear is the identity; tf::SRGB is
-  the curve of IEC 61966-2-1, which Display P3 shares; tf::PQ and tf::HLG
-  are the HDR signals of Rec. 2100. HDR tags set `IS_HDR`
+  the curve of IEC 61966-2-1, which Display P3 shares; tf::Rec709 is the
+  camera OETF of BT.709 and SDR BT.2020; tf::PQ and tf::HLG are the HDR
+  signals of Rec. 2100. HDR tags set `IS_HDR`
   (aest::colors::HDRTransfer): their signal is in [0, 1] but not relative
   to the display's white, so aest::colors::BoundedRGBSpace, and with it HSL
   and HSV, leaves them out.
@@ -84,12 +85,12 @@ pairs. aest::colors::RGBName builds the `TYPE` from the tags, as the transfer
 prefix then the gamut name (`Lin` + `SRGB`), and is specialized where a space
 has its own name, as ACEScg does.
 
-| Gamut            | tf::SRGB  | tf::Linear   | tf::PQ    | tf::HLG    |
-|------------------|-----------|--------------|-----------|------------|
-| gamut::SRGB      | SRGB      | LinSRGB      |           |            |
-| gamut::DisplayP3 | DisplayP3 | LinDisplayP3 |           |            |
-| gamut::Rec2020   |           | LinRec2020   | Rec2100PQ | Rec2100HLG |
-| gamut::AP1       |           | ACEScg       |           |            |
+| Gamut            | tf::SRGB  | tf::Linear   | tf::Rec709 | tf::PQ    | tf::HLG    |
+|------------------|-----------|--------------|------------|-----------|------------|
+| gamut::SRGB      | SRGB      | LinSRGB      | Rec709     |           |            |
+| gamut::DisplayP3 | DisplayP3 | LinDisplayP3 |            |           |            |
+| gamut::Rec2020   |           | LinRec2020   | Rec2020    | Rec2100PQ | Rec2100HLG |
+| gamut::AP1       |           | ACEScg       |            |           |            |
 
 Linear 1.0 is the reference white everywhere: the brightest SDR white, and
 203 cd/m² (aest::colors::REFERENCE_WHITE_NITS) for PQ, after ITU-R BT.2408.
@@ -119,14 +120,16 @@ aest::colors::Converter specializations to and from its parent:
 XYZ                                  root, CIE 1931 relative to D65
 ├── LinSRGB                          matrix of gamut::SRGB
 │   ├── Premultiplied<LinSRGB>       channels times alpha
-│   └── SRGB                         tf::SRGB
-│       ├── HSL                      hue, saturation, lightness
-│       └── HSV                      hue, saturation, value
+│   ├── SRGB                         tf::SRGB
+│   │   ├── HSL                      hue, saturation, lightness
+│   │   └── HSV                      hue, saturation, value
+│   └── Rec709                       tf::Rec709
 ├── LinDisplayP3                     matrix of gamut::DisplayP3
 │   └── DisplayP3                    tf::SRGB
 │       ├── HSL<DisplayP3>           hue, saturation, lightness
 │       └── HSV<DisplayP3>           hue, saturation, value
 ├── LinRec2020                       matrix of gamut::Rec2020
+│   ├── Rec2020                      tf::Rec709
 │   ├── Rec2100PQ                    tf::PQ
 │   └── Rec2100HLG                   tf::HLG
 ├── ACEScg                           matrix of gamut::AP1, Bradford to D65
@@ -210,7 +213,7 @@ and MSVC.
 
 | Compile time                                                                                                                  | Run time only                                                       |
 |-------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------|
-| Construction, hex and byte packing, opacity(), `==`                                                                           | tf::SRGB, tf::PQ and tf::HLG (`std::pow`, `std::log`)               |
+| Construction, hex and byte packing, opacity(), `==`                                                                           | tf::SRGB, tf::Rec709, tf::PQ and tf::HLG (`std::pow`, `std::log`)   |
 | Encoded RGB ↔ HSL ↔ HSV conversions                                                                                           | euclidean() (`std::sqrt`)                                           |
 | lighten(), darken(), saturate(), desaturate(), grayscale(), rotate_hue(), complement() and mix() when no step needs `<cmath>` | Anything through an encoding                                        |
 | Premultiplied conversions, over() of linear colors                                                                            | contrast_ratio() (`std::pow`)                                       |

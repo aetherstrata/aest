@@ -221,6 +221,22 @@ struct RGBName<gamut::AP1, tf::Linear>
     static constexpr std::string_view VALUE = "ACEScg";
 };
 
+/** @brief The sRGB primaries with the Rec. 709 OETF are the space of Rec. 709. */
+template <>
+struct RGBName<gamut::SRGB, tf::Rec709>
+{
+    /** @brief The name. */
+    static constexpr std::string_view VALUE = "Rec709";
+};
+
+/** @brief Rec. 2020 with the Rec. 709 OETF is the SDR space of Rec. 2020. */
+template <>
+struct RGBName<gamut::Rec2020, tf::Rec709>
+{
+    /** @brief The name. */
+    static constexpr std::string_view VALUE = "Rec2020";
+};
+
 /** @brief Rec. 2020 with PQ is the PQ space of Rec. 2100. */
 template <>
 struct RGBName<gamut::Rec2020, tf::PQ>
@@ -445,6 +461,12 @@ using DisplayP3 = BasicRGB<gamut::DisplayP3, tf::SRGB>;
 
 /// Linear Display P3
 using LinDisplayP3 = BasicRGB<gamut::DisplayP3, tf::Linear>;
+
+/// Rec. 709: the sRGB primaries with the Rec. 709 OETF, the encoding of HD video
+using Rec709 = BasicRGB<gamut::SRGB, tf::Rec709>;
+
+/// Rec. 2020: the Rec. 2020 primaries with the Rec. 709 OETF, the encoding of SDR UHD video
+using Rec2020 = BasicRGB<gamut::Rec2020, tf::Rec709>;
 
 /// Linear Rec. 2020, the gamut of UHD and HDR video
 using LinRec2020 = BasicRGB<gamut::Rec2020, tf::Linear>;

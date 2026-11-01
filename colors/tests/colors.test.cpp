@@ -1363,6 +1363,46 @@ TEST_CASE("HDR signals join the tree but not HSL", "[colors][transfer]")
     CHECK_THAT(aest::colors::mix(pq, pq, 0.5f).red(), WithinAbs(0.58, 1e-06));
 }
 
+TEST_CASE("tf::Rec709 follows the BT.709 OETF", "[colors][transfer]")
+{
+    using aest::colors::tf::Rec709;
+
+    // Linear segment up to beta, then the power curve; they meet at 0.0812
+    CHECK(Rec709::encode(0.f) == 0.f);
+    CHECK_THAT(Rec709::encode(0.01f), WithinAbs(0.045, 1e-6));
+    CHECK_THAT(Rec709::encode(0.018053968f), WithinAbs(0.081243, 1e-5));
+    CHECK_THAT(Rec709::encode(0.18f), WithinAbs(0.408848, 1e-5));
+    CHECK_THAT(Rec709::encode(0.5f), WithinAbs(0.705436, 1e-5));
+    CHECK(Rec709::encode(1.f) == 1.f);
+    CHECK(Rec709::encode(2.f) == 1.f);
+
+    for (const float linear : {0.f, 0.005f, 0.018f, 0.0181f, 0.18f, 0.9f, 1.f})
+        CHECK_THAT(Rec709::decode(Rec709::encode(linear)), WithinAbs(linear, 1e-6));
+}
+
+TEST_CASE("Rec709 shares the sRGB gamut and differs in its curve", "[colors][transfer]")
+{
+    using aest::colors::convert;
+    using aest::colors::Rec2020;
+    using aest::colors::Rec709;
+
+    STATIC_REQUIRE(Rec709::TYPE == "Rec709");
+    STATIC_REQUIRE(Rec2020::TYPE == "Rec2020");
+    STATIC_REQUIRE_FALSE(aest::colors::HDRTransfer<aest::colors::tf::Rec709>);
+    STATIC_REQUIRE(HasHSL<Rec709>);
+
+    // Same primaries: white and black stay put, and a mid gray re-encodes
+    const Rec709 white = convert<Rec709>(SRGB::from_hex(0xFF'FF'FF));
+    CHECK_THAT(white.red(), WithinAbs(1., 1e-5));
+    CHECK_THAT(convert<Rec709>(SRGB{0.f, 0.f, 0.f}).blue(), WithinAbs(0., 1e-6));
+    const Rec709 gray = convert<Rec709>(SRGB{0.5f, 0.5f, 0.5f});
+    CHECK_THAT(gray.green(), WithinAbs(0.450040, 1e-5));
+    CHECK_THAT(convert<SRGB>(gray).green(), WithinAbs(0.5, 1e-5));
+
+    // Rec2020 encodes LinRec2020 with the same curve
+    CHECK_THAT(convert<Rec2020>(LinRec2020{0.18f, 0.18f, 0.18f}).red(), WithinAbs(0.408848, 1e-5));
+}
+
 namespace
 {
 template <typename T>

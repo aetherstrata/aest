@@ -19,6 +19,24 @@ namespace aest::colors
 /** @brief Exponent of the sRGB transfer function. */
 constexpr float SRGB_GAMMA = 2.4f;
 
+/**
+ * @brief Offset alpha of the Rec. 709 OETF, solved so that its two segments
+ *        meet; ITU-R BT.2020 gives it, BT.709 rounds it to 1.099.
+ */
+constexpr float REC709_ALPHA = 1.09929682680944f;
+
+/**
+ * @brief Linear light beta where the Rec. 709 OETF turns from its linear
+ *        segment to its power curve; BT.709 rounds it to 0.018.
+ */
+constexpr float REC709_BETA = 0.018053968510807f;
+
+/** @brief Slope of the linear segment of the Rec. 709 OETF. */
+constexpr float REC709_SLOPE = 4.5f;
+
+/** @brief Exponent of the power curve of the Rec. 709 OETF. */
+constexpr float REC709_EXPONENT = 0.45f;
+
 /** @brief Luminance of the PQ signal 1.0 in cd/m², the peak of SMPTE ST 2084. */
 constexpr double PQ_PEAK_NITS = 10000.0;
 
@@ -182,6 +200,63 @@ struct SRGB
     /**
      * @brief Brings a channel value into the encoded range.
      * @param[in] value The channel value
+     * @return @p value clamped to the 0-1 range
+     */
+    static constexpr float clamp(const float value) { return colors::clamp(value); }
+};
+
+/**
+ * @brief The OETF of ITU-R BT.709, which BT.2020 shares for SDR: a linear
+ *        segment near black, then a power curve with exponent 0.45.
+ *
+ * Only the OETF and its inverse are applied, like tf::HLG: the linear values
+ * are scene light. A display decodes the signal with the BT.1886 EOTF
+ * instead, about a 2.4 power, which is not the inverse of this curve: the
+ * difference is the system gamma of about 1.2 that video adds for dim
+ * viewing. Channels are clamped to the 0-1 range, on full range signals:
+ * limited "TV" range is a quantization step this tag leaves out.
+ */
+struct Rec709
+{
+    /** @brief Prefix of the color space name. */
+    static constexpr std::string_view PREFIX = "Rec709";
+
+    /**
+     * @brief Encodes linear scene light into a Rec. 709 signal with the OETF.
+     * @param[in] value The linear value, 0 or greater
+     * @return The signal in the 0-1 range: values from 1 up give 1.
+     * @note Not constexpr: std::pow is constexpr only since C++26.
+     */
+    static float encode(const float value)
+    {
+        if (value >= 1.f)
+            return 1.f;
+
+        return value < REC709_BETA
+                 ? REC709_SLOPE * value
+                 : REC709_ALPHA * std::pow(value, REC709_EXPONENT) - (REC709_ALPHA - 1.f);
+    }
+
+    /**
+     * @brief Decodes a Rec. 709 signal to linear scene light with the
+     *        inverse OETF.
+     * @param[in] value The signal in the 0-1 range
+     * @return The linear value in the 0-1 range.
+     * @note Not constexpr: std::pow is constexpr only since C++26.
+     */
+    static float decode(const float value)
+    {
+        if (value == 1)
+            return 1;
+
+        return value < REC709_SLOPE * REC709_BETA
+                 ? value / REC709_SLOPE
+                 : std::pow((value + (REC709_ALPHA - 1.f)) / REC709_ALPHA, 1.f / REC709_EXPONENT);
+    }
+
+    /**
+     * @brief Brings a signal value into the encoded range.
+     * @param[in] value The signal value
      * @return @p value clamped to the 0-1 range
      */
     static constexpr float clamp(const float value) { return colors::clamp(value); }
