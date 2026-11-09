@@ -56,7 +56,7 @@ target_link_libraries(app PRIVATE aest::aest)
 
 import aest;
 
-std::string hex = aest::colors::SRGB::from_hex(0x008080).hex_string(); // "#008080"
+std::string hex = aest::colors::hex_string(aest::colors::from_hex(0x008080)); // "#008080"
 ```
 
 ## Building

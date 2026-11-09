@@ -19,23 +19,29 @@
 
 import aest.colors;
 
+using aest::colors::from_argb;
+using aest::colors::from_hex;
+using aest::colors::from_rgba;
+using aest::colors::hex_string;
 using aest::colors::HSL;
 using aest::colors::HSV;
 using aest::colors::LinSRGB;
 using aest::colors::SRGB;
+using aest::colors::to_argb;
+using aest::colors::to_rgba;
 using Catch::Matchers::WithinAbs;
 using Catch::Matchers::WithinRel;
 
 TEST_CASE("from_hex unpacks channels", "[colors]")
 {
-    STATIC_REQUIRE(SRGB::from_hex(0x12'34'56) == SRGB::from_bytes(0x12, 0x34, 0x56));
-    STATIC_REQUIRE(SRGB::from_argb(0xFF'00'00'00) == SRGB{});
+    STATIC_REQUIRE(from_hex(0x12'34'56) == from_rgba(0x12, 0x34, 0x56));
+    STATIC_REQUIRE(from_argb(0xFF'00'00'00) == SRGB{});
 }
 
 TEST_CASE("hex_string formats as #RRGGBB", "[colors]")
 {
-    CHECK(SRGB{}.hex_string() == "#000000");
-    CHECK(SRGB::from_bytes(0xAB, 0x0C, 0xFF).hex_string() == "#AB0CFF");
+    CHECK(hex_string(SRGB{}) == "#000000");
+    CHECK(hex_string(from_rgba(0xAB, 0x0C, 0xFF)) == "#AB0CFF");
 }
 
 TEST_CASE("std::format prints the color space and channels", "[colors]")
@@ -59,16 +65,16 @@ TEST_CASE("std::format rejects specs that are invalid for a float", "[colors]")
 
 TEST_CASE("hex_string round-trips from_hex", "[colors]")
 {
-    CHECK(SRGB::from_hex(0xC0'FF'EE).hex_string() == "#C0FFEE");
+    CHECK(hex_string(from_hex(0xC0'FF'EE)) == "#C0FFEE");
 }
 
 TEST_CASE("Byte conversions round to the nearest value", "[colors]")
 {
     const SRGB color{0.5f, 0.2f, 0.999f, 0.6f};
-    CHECK(color.hex_string() == "#8033FF");
-    CHECK(color.to_rgba() == 0x80'33'FF'99);
-    CHECK(color.to_argb() == 0x99'80'33'FF);
-    CHECK(color.hex_string() == std::format("#{:06X}", color.to_rgba() >> 8));
+    CHECK(hex_string(color) == "#8033FF");
+    CHECK(to_rgba(color) == 0x80'33'FF'99);
+    CHECK(to_argb(color) == 0x99'80'33'FF);
+    CHECK(hex_string(color) == std::format("#{:06X}", to_rgba(color) >> 8));
 }
 
 TEST_CASE("Hue is wrapped to [0, 360)", "[colors]")
@@ -123,7 +129,7 @@ TEST_CASE("SRGB round-trips through LinSRGB", "[colors]")
     for (std::int32_t value = 0; value <= 255; ++value)
     {
         const auto byte  = static_cast<std::uint8_t>(value);
-        const SRGB color = SRGB::from_bytes(byte, byte, byte);
+        const SRGB color = from_rgba(byte, byte, byte);
         const SRGB back  = aest::colors::convert<SRGB>(aest::colors::convert<LinSRGB>(color));
         CHECK_THAT(back.red(), WithinAbs(color.red(), 1e-06));
     }
@@ -556,11 +562,11 @@ TEST_CASE("lighten clamps the amount to [0, 1]", "[colors][operations]")
 {
     using aest::colors::lighten;
 
-    constexpr SRGB coral = SRGB::from_hex(0xFF'7F'50);
-    CHECK(lighten<HSL>(coral, 0.f).to_rgba() == coral.to_rgba());
-    CHECK(lighten<HSL>(coral, -1.f).to_rgba() == coral.to_rgba());
-    CHECK(lighten<HSL>(coral, 1.f).to_rgba() == 0xFF'FF'FF'FF);
-    CHECK(lighten<HSL>(coral, 2.f).to_rgba() == 0xFF'FF'FF'FF);
+    constexpr SRGB coral = from_hex(0xFF'7F'50);
+    CHECK(to_rgba(lighten<HSL>(coral, 0.f)) == to_rgba(coral));
+    CHECK(to_rgba(lighten<HSL>(coral, -1.f)) == to_rgba(coral));
+    CHECK(to_rgba(lighten<HSL>(coral, 1.f)) == 0xFF'FF'FF'FF);
+    CHECK(to_rgba(lighten<HSL>(coral, 2.f)) == 0xFF'FF'FF'FF);
 }
 
 TEST_CASE("darken moves HSL lightness toward black", "[colors][operations]")
@@ -574,11 +580,11 @@ TEST_CASE("darken moves HSL lightness toward black", "[colors][operations]")
     CHECK_THAT(dark.blue(), WithinAbs(0., 1e-6));
     CHECK(dark.alpha() == 0.5f);
 
-    constexpr SRGB coral = SRGB::from_hex(0xFF'7F'50);
-    CHECK(darken<HSL>(coral, 0.f).to_rgba() == coral.to_rgba());
-    CHECK(darken<HSL>(coral, -1.f).to_rgba() == coral.to_rgba());
-    CHECK(darken<HSL>(coral, 1.f).to_rgba() == 0x00'00'00'FF);
-    CHECK(darken<HSL>(coral, 2.f).to_rgba() == 0x00'00'00'FF);
+    constexpr SRGB coral = from_hex(0xFF'7F'50);
+    CHECK(to_rgba(darken<HSL>(coral, 0.f)) == to_rgba(coral));
+    CHECK(to_rgba(darken<HSL>(coral, -1.f)) == to_rgba(coral));
+    CHECK(to_rgba(darken<HSL>(coral, 1.f)) == 0x00'00'00'FF);
+    CHECK(to_rgba(darken<HSL>(coral, 2.f)) == 0x00'00'00'FF);
 }
 
 namespace
@@ -593,7 +599,7 @@ TEST_CASE("The working space is chosen with in<Space>", "[colors][operations]")
     using aest::colors::in;
     using aest::colors::lighten;
 
-    constexpr SRGB coral = SRGB::from_hex(0xFF'7F'50);
+    constexpr SRGB coral = from_hex(0xFF'7F'50);
     CHECK(lighten<HSL>(coral, 0.3f) == lighten(coral, 0.3f, in<HSL>));
     CHECK(darken<HSL>(coral, 0.3f) == darken(coral, 0.3f, in<HSL>));
     CHECK(lighten(coral, 0.3f) == lighten<aest::colors::OKLCH>(coral, 0.3f));
@@ -719,8 +725,8 @@ TEST_CASE("euclidean is symmetric and ignores alpha", "[colors][distance]")
 {
     using aest::colors::euclidean;
 
-    const SRGB coral = SRGB::from_hex(0xFF'7F'50);
-    const SRGB teal  = SRGB::from_hex(0x00'80'80);
+    const SRGB coral = from_hex(0xFF'7F'50);
+    const SRGB teal  = from_hex(0x00'80'80);
 
     CHECK(euclidean(coral, coral) == 0.f);
     CHECK(euclidean(coral, teal) == euclidean(teal, coral));
@@ -751,8 +757,8 @@ TEST_CASE("euclidean accepts mixed color types and needs a Euclidean space", "[c
 TEST_CASE("Named CSS colors live in the css namespace", "[colors]")
 {
     namespace css = aest::colors::css;
-    STATIC_REQUIRE(css::coral == SRGB::from_hex(0xFF'7F'50));
-    STATIC_REQUIRE(css::midnightBlue == SRGB::from_hex(0x19'19'70));
+    STATIC_REQUIRE(css::coral == from_hex(0xFF'7F'50));
+    STATIC_REQUIRE(css::midnightBlue == from_hex(0x19'19'70));
 }
 
 namespace
@@ -860,7 +866,7 @@ TEST_CASE("luminance is the Y of XYZ", "[colors][operations]")
     CHECK_THAT(luminance(aest::colors::LinDisplayP3{1.f, 1.f, 1.f}), WithinAbs(1., 1e-6));
 
     // Other spaces are linearized first
-    CHECK_THAT(luminance(SRGB::from_hex(0x80'80'80)), WithinAbs(0.2158605, 1e-06));
+    CHECK_THAT(luminance(from_hex(0x80'80'80)), WithinAbs(0.2158605, 1e-06));
     CHECK_THAT(luminance(HSL{0.f, 0.f, 1.f}), WithinAbs(1., 1e-6));
 }
 
@@ -868,14 +874,14 @@ TEST_CASE("contrast_ratio follows WCAG 2.x", "[colors][operations]")
 {
     using aest::colors::contrast_ratio;
 
-    const SRGB white = SRGB::from_hex(0xFF'FF'FF);
-    const SRGB black = SRGB::from_hex(0x00'00'00);
+    const SRGB white = from_hex(0xFF'FF'FF);
+    const SRGB black = from_hex(0x00'00'00);
     CHECK_THAT(contrast_ratio(black, white), WithinAbs(21., 1e-05));
     CHECK(contrast_ratio(white, black) == contrast_ratio(black, white));
     CHECK(contrast_ratio(white, white) == 1.f);
 
     // #777777 on white just fails the 4.5:1 AA threshold
-    CHECK_THAT(contrast_ratio(SRGB::from_hex(0x77'77'77), white), WithinAbs(4.478089, 1e-06));
+    CHECK_THAT(contrast_ratio(from_hex(0x77'77'77), white), WithinAbs(4.478089, 1e-06));
 
     // Mixed types, and HDR colors clip to white as a display shows them
     CHECK_THAT(contrast_ratio(HSL{0.f, 0.f, 0.f}, LinSRGB{4.f, 4.f, 4.f}), WithinAbs(21., 1e-05));
@@ -966,7 +972,7 @@ TEST_CASE("XYZ is the root of the conversion tree", "[colors][xyz]")
     // HSL and HSV still convert through SRGB, without a round-trip through XYZ
     STATIC_REQUIRE(convert<HSV>(HSL{210.f, 0.5f, 0.5f}).hue() == 210.f);
 
-    const XYZ white = convert<XYZ>(SRGB::from_hex(0xFF'FF'FF));
+    const XYZ white = convert<XYZ>(from_hex(0xFF'FF'FF));
     CHECK_THAT(white.y(), WithinAbs(1., 1e-6));
     CHECK(std::format("{:.2f}", XYZ{0.5f, 1.f, 0.25f}) == "XYZ(0.50, 1.00, 0.25, 1.00)");
 }
@@ -977,9 +983,6 @@ using aest::colors::ACEScg;
 using aest::colors::DisplayP3;
 using aest::colors::LinDisplayP3;
 using aest::colors::LinRec2020;
-
-template <typename T>
-concept HasFromHex = requires { T::from_hex(0u); };
 } // namespace
 
 TEST_CASE("BasicRGB names each space after its gamut and transfer", "[colors][gamut]")
@@ -1014,11 +1017,21 @@ TEST_CASE("BasicRGB clamps and adds arithmetic by transfer function", "[colors][
     STATIC_REQUIRE_FALSE(LinearRGBSpace<SRGB>);
     STATIC_REQUIRE(BoundedRGBSpace<DisplayP3>);
     STATIC_REQUIRE_FALSE(BoundedRGBSpace<LinSRGB>);
+}
 
-    // Hex codes and bytes stay with SRGB, the space they are written in
-    STATIC_REQUIRE(HasFromHex<SRGB>);
-    STATIC_REQUIRE_FALSE(HasFromHex<DisplayP3>);
-    STATIC_REQUIRE_FALSE(HasFromHex<LinSRGB>);
+TEST_CASE("Hex codes and bytes are SRGB, converted to and from any space", "[colors][gamut]")
+{
+    using aest::colors::convert;
+
+    const SRGB coral = from_hex(0xFF'7F'50);
+    CHECK(from_hex<HSL>(0xFF'7F'50) == convert<HSL>(coral));
+    CHECK(from_rgba<HSL>(0, 120, 80) == convert<HSL>(from_rgba(0, 120, 80)));
+    CHECK(from_argb<LinSRGB>(0xFF'FF'FF'FF) == LinSRGB{1.f, 1.f, 1.f});
+    CHECK(to_rgba(convert<HSL>(coral)) == to_rgba(coral));
+
+    // Colors outside the SRGB gamut clip
+    CHECK(hex_string(DisplayP3{1.f, 0.f, 0.f}) == "#FF0000");
+    CHECK(to_argb(LinSRGB{4.f, 4.f, 4.f, 0.f}) == 0x00'FF'FF'FF);
 }
 
 TEST_CASE("Gamut matrices are derived from the chromaticities", "[colors][gamut]")
@@ -1050,7 +1063,7 @@ TEST_CASE("Wide gamuts round-trip, encoded and linear", "[colors][gamut]")
     CHECK(p3Back.alpha() == 0.5f);
 
     // Every sRGB color fits in the wider gamuts, so it comes back unchanged
-    const SRGB srgb = SRGB::from_hex(0x33'99'CC);
+    const SRGB srgb = from_hex(0x33'99'CC);
     for (const SRGB back :
          {convert<SRGB>(convert<DisplayP3>(srgb)), convert<SRGB>(convert<LinRec2020>(srgb)),
           convert<SRGB>(convert<ACEScg>(srgb))})
@@ -1144,7 +1157,7 @@ TEST_CASE("Gamuts and transfer functions defined outside the library join the tr
     const AdobeRGB gray = convert<AdobeRGB>(LinAdobeRGB{0.5f, 0.5f, 0.5f});
     CHECK_THAT(gray.red(), WithinAbs(0.729740, 1e-06)); // 0.5^(1 / 2.2)
 
-    const SRGB srgb = SRGB::from_hex(0x33'99'CC);
+    const SRGB srgb = from_hex(0x33'99'CC);
     const SRGB back = convert<SRGB>(convert<AdobeRGB>(srgb));
     CHECK_THAT(back.green(), WithinAbs(srgb.green(), 1e-06));
 }
@@ -1314,7 +1327,7 @@ TEST_CASE("Rec2100PQ puts linear 1.0 at 203 cd/m2", "[colors][transfer]")
     CHECK_THAT(white.red(), WithinAbs(0.580689, 1e-06));
 
     // sRGB white is the reference white too, so it lands on the same signal
-    const Rec2100PQ srgbWhite = convert<Rec2100PQ>(SRGB::from_hex(0xFF'FF'FF));
+    const Rec2100PQ srgbWhite = convert<Rec2100PQ>(from_hex(0xFF'FF'FF));
     CHECK_THAT(srgbWhite.green(), WithinAbs(0.580689, 1e-06));
 
     // HDR values round-trip: four times reference white is 812 cd/m2
@@ -1392,7 +1405,7 @@ TEST_CASE("Rec709 shares the sRGB gamut and differs in its curve", "[colors][tra
     STATIC_REQUIRE(HasHSL<Rec709>);
 
     // Same primaries: white and black stay put, and a mid gray re-encodes
-    const Rec709 white = convert<Rec709>(SRGB::from_hex(0xFF'FF'FF));
+    const Rec709 white = convert<Rec709>(from_hex(0xFF'FF'FF));
     CHECK_THAT(white.red(), WithinAbs(1., 1e-5));
     CHECK_THAT(convert<Rec709>(SRGB{0.f, 0.f, 0.f}).blue(), WithinAbs(0., 1e-6));
     const Rec709 gray = convert<Rec709>(SRGB{0.5f, 0.5f, 0.5f});
@@ -1524,7 +1537,7 @@ TEST_CASE("RGBA8 and RGB10A2 store unorm channels", "[colors][packed]")
     using Bytes = std::array<std::uint8_t, 4>;
 
     // Bytes in memory order, the color's own encoding stored as is
-    constexpr SRGB color = SRGB::from_rgba(0x33'66'99'80);
+    constexpr SRGB color = from_rgba(0x33'66'99'80);
     STATIC_REQUIRE(pack_rgba8(color) == Bytes{0x33, 0x66, 0x99, 0x80});
     STATIC_REQUIRE(unpack_rgba8<SRGB>(Bytes{0x33, 0x66, 0x99, 0x80}) == color);
     STATIC_REQUIRE(pack_rgba8(LinSRGB{2.f, 0.5f, 0.f}) == Bytes{0xFF, 0x80, 0x00, 0xFF});
@@ -1649,8 +1662,8 @@ TEST_CASE("OKLab matches the CSS Color 4 reference", "[colors][oklab]")
     check_oklab(convert<OKLab>(LinSRGB{1.f, 1.f, 1.f}), 1., 0., 0.);
     check_oklab(convert<OKLab>(LinSRGB{1.f, 0.f, 0.f}), 0.62795536, 0.22486307, 0.12584628);
     check_oklab(convert<OKLab>(LinSRGB{0.f, 1.f, 0.f}), 0.86643962, -0.23388758, 0.17949845);
-    check_oklab(convert<OKLab>(SRGB::from_hex(0x00'00'FF)), 0.45201372, -0.03245698, -0.31152817);
-    check_oklab(convert<OKLab>(SRGB::from_hex(0xFF'FF'00)), 0.96798273, -0.07136908, 0.19856972);
+    check_oklab(convert<OKLab>(from_hex(0x00'00'FF)), 0.45201372, -0.03245698, -0.31152817);
+    check_oklab(convert<OKLab>(from_hex(0xFF'FF'00)), 0.96798273, -0.07136908, 0.19856972);
 
     // Grays have no chroma, and alpha passes through
     const OKLab gray = convert<OKLab>(SRGB{0.5f, 0.5f, 0.5f, 0.25f});
@@ -1682,8 +1695,7 @@ TEST_CASE("OKLab and OKLCH round-trip through the tree", "[colors][oklab]")
 {
     using aest::colors::convert;
 
-    for (const SRGB color :
-         {SRGB::from_hex(0x33'99'CC), SRGB::from_hex(0xE0'40'10), SRGB{0.f, 0.f, 0.f}})
+    for (const SRGB color : {from_hex(0x33'99'CC), from_hex(0xE0'40'10), SRGB{0.f, 0.f, 0.f}})
     {
         const SRGB viaLab = convert<SRGB>(convert<OKLab>(color));
         const SRGB viaLch = convert<SRGB>(convert<OKLCH>(color));
@@ -1733,19 +1745,19 @@ TEST_CASE("lighten and darken default to OKLCH", "[colors][operations]")
 
     // Equal amounts give equal perceived steps, whatever the hue: in HSL,
     // yellow and blue start at the same lightness but look very different
-    const SRGB yellow   = SRGB::from_hex(0xFF'FF'00);
-    const SRGB blue     = SRGB::from_hex(0x00'00'FF);
+    const SRGB yellow   = from_hex(0xFF'FF'00);
+    const SRGB blue     = from_hex(0x00'00'FF);
     const float yellowL = convert<OKLCH>(yellow).lightness();
     const float blueL   = convert<OKLCH>(blue).lightness();
     CHECK_THAT(convert<OKLCH>(darken(yellow, 0.5f)).lightness(), WithinAbs(yellowL * 0.5, 1e-6));
     CHECK_THAT(convert<OKLCH>(darken(blue, 0.5f)).lightness(), WithinAbs(blueL * 0.5, 1e-6));
 
     // The hue is kept, and 1 reaches exactly white or black
-    const SRGB red = SRGB::from_hex(0xFF'00'00);
+    const SRGB red = from_hex(0xFF'00'00);
     CHECK_THAT(convert<OKLCH>(darken(red, 0.3f)).hue(), WithinAbs(convert<OKLCH>(red).hue(), 1e-4));
-    CHECK(lighten(red, 1.f).to_rgba() == 0xFF'FF'FF'FF);
-    CHECK(darken(red, 1.f).to_rgba() == 0x00'00'00'FF);
-    CHECK(lighten(red, 0.f).to_rgba() == red.to_rgba());
+    CHECK(to_rgba(lighten(red, 1.f)) == 0xFF'FF'FF'FF);
+    CHECK(to_rgba(darken(red, 1.f)) == 0x00'00'00'FF);
+    CHECK(to_rgba(lighten(red, 0.f)) == to_rgba(red));
 
     // The result keeps the input's type and alpha
     const SRGB faded = lighten(SRGB{1.f, 0.f, 0.f, 0.5f}, 0.25f);
@@ -1757,8 +1769,8 @@ TEST_CASE("euclidean defaults to OKLab", "[colors][distance]")
     using aest::colors::convert;
     using aest::colors::euclidean;
 
-    const SRGB red  = SRGB::from_hex(0xFF'00'00);
-    const SRGB blue = SRGB::from_hex(0x00'00'FF);
+    const SRGB red  = from_hex(0xFF'00'00);
+    const SRGB blue = from_hex(0x00'00'FF);
     CHECK(euclidean(red, blue) == euclidean<OKLab>(red, blue));
     CHECK_THAT(euclidean(SRGB{0.f, 0.f, 0.f}, SRGB{1.f, 1.f, 1.f}), WithinAbs(1., 1e-6));
 
@@ -1870,8 +1882,8 @@ TEST_CASE("mix with a HueMode needs a space with a hue", "[colors][hue]")
     STATIC_REQUIRE_FALSE(MixableHueTogether<SRGB, HSL>);
 
     // Red to blue the long way passes through green, the short way through magenta
-    const SRGB red       = SRGB::from_hex(0xFF'00'00);
-    const SRGB blue      = SRGB::from_hex(0x00'00'FF);
+    const SRGB red       = from_hex(0xFF'00'00);
+    const SRGB blue      = from_hex(0x00'00'FF);
     const OKLCH longWay  = convert<OKLCH>(mix<OKLCH>(red, blue, 0.5f, HueMode::longer));
     const OKLCH shortWay = convert<OKLCH>(mix<OKLCH>(red, blue, 0.5f));
     CHECK(longWay.hue() > 90.f);
@@ -1929,7 +1941,7 @@ TEST_CASE("saturate and desaturate default to scaling OKLCH chroma", "[colors][o
     STATIC_REQUIRE_FALSE(CanSaturateIn<LinSRGB>);
 
     // The perceived lightness and hue are kept through other color types
-    const SRGB coral   = SRGB::from_hex(0xC0'70'60);
+    const SRGB coral   = from_hex(0xC0'70'60);
     const OKLCH before = convert<OKLCH>(coral);
     const OKLCH after  = convert<OKLCH>(saturate(coral, 0.25f));
     CHECK_THAT(after.lightness(), WithinAbs(before.lightness(), 1e-6));
@@ -1945,8 +1957,8 @@ TEST_CASE("grayscale keeps the perceived lightness", "[colors][operations]")
     STATIC_REQUIRE(grayscale(OKLCH{0.7f, 0.15f, 100.f, 0.5f}) == OKLCH{0.7f, 0.f, 100.f, 0.5f});
 
     // Yellow and blue have the same HSL lightness, but not the same gray
-    const SRGB yellow    = SRGB::from_hex(0xFF'FF'00);
-    const SRGB blue      = SRGB::from_hex(0x00'00'FF);
+    const SRGB yellow    = from_hex(0xFF'FF'00);
+    const SRGB blue      = from_hex(0x00'00'FF);
     const SRGB lightGray = grayscale(yellow);
     const SRGB darkGray  = grayscale(blue);
     CHECK_THAT(lightGray.red(), WithinAbs(lightGray.blue(), 1e-5));
@@ -1969,7 +1981,7 @@ TEST_CASE("rotate_hue and complement turn the hue", "[colors][operations]")
     STATIC_REQUIRE(complement<HSV>(SRGB{1.f, 0.f, 0.f}) == SRGB{0.f, 1.f, 1.f});
 
     // In OKLCH a full turn comes back, and the perceived lightness never moves
-    const SRGB coral  = SRGB::from_hex(0xFF'7F'50);
+    const SRGB coral  = from_hex(0xFF'7F'50);
     const SRGB around = rotate_hue(coral, 360.f);
     CHECK_THAT(around.green(), WithinAbs(coral.green(), 1e-6));
     const OKLCH turned = convert<OKLCH>(rotate_hue(convert<OKLCH>(coral), 90.f));

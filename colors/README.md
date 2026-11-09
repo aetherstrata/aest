@@ -7,12 +7,14 @@ Color types and conversions, under the `aest::colors` namespace.
 
 import aest.colors;
 
+using aest::colors::HSL;
 using aest::colors::SRGB;
 
-constexpr SRGB coral = SRGB::from_hex(0xFF7F50);
-std::string hex = coral.hex_string();                          // "#FF7F50"
-auto hsl = aest::colors::convert<aest::colors::HSL>(coral);    // SRGB -> HSL
-SRGB faded = aest::colors::css::teal.opacity(0.5f);             // named CSS colors
+constexpr SRGB coral = aest::colors::from_hex(0xFF7F50);
+std::string hex = aest::colors::hex_string(coral);       // "#FF7F50"
+HSL hsl = aest::colors::convert<HSL>(coral);             // SRGB -> HSL
+HSL green = aest::colors::from_rgba<HSL>(0, 120, 80);    // SRGB bytes -> HSL
+SRGB faded = aest::colors::css::teal.opacity(0.5f);      // named CSS colors
 ```
 
 ## Usage

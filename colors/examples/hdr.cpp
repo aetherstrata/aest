@@ -18,7 +18,7 @@ int main()
 
     // An sRGB texture, decoded to linear light and lit by a light 6 times
     // brighter than reference white
-    const LinSRGB albedo = convert<LinSRGB>(SRGB::from_hex(0xE0'A0'60));
+    const LinSRGB albedo = from_hex<LinSRGB>(0xE0'A0'60);
     const LinSRGB lit    = albedo * 6.f;
 
     // SDR: tonemap into [0, 1], then encode and pack for R8G8B8A8_SRGB

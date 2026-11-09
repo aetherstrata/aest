@@ -9,6 +9,7 @@ aest_add_library(colors
         src/OkLab.cppm
         src/Format.cppm
         src/Gamut.cppm
+        src/Hex.cppm
         src/Operations.cppm
         src/Packed.cppm
         src/Space.cppm

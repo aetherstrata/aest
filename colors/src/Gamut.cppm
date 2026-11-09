@@ -8,11 +8,8 @@
  */
 module;
 #include <array>
-#include <bit>
 #include <concepts>
 #include <cstdint>
-#include <format>
-#include <string>
 #include <string_view>
 #include <type_traits>
 export module aest.colors:gamut;
@@ -279,10 +276,6 @@ class BasicRGB final : public ColorBase<BasicRGB<Gamut, Transfer>>,
                                                  ColorArithmetic<BasicRGB<Gamut, Transfer>>,
                                                  NoArithmetic>
 {
-    /** @brief Whether this is SRGB, the space of hex codes and CSS colors. */
-    static constexpr bool IS_SRGB =
-        std::same_as<Gamut, gamut::SRGB> && std::same_as<Transfer, tf::SRGB>;
-
 public:
     /** @brief Color space name, used by the std::formatter specialization. */
     static constexpr std::string_view TYPE = RGBName<Gamut, Transfer>::VALUE;
@@ -324,98 +317,6 @@ public:
      */
     [[nodiscard]] constexpr float blue() const noexcept { return this->_ch3; }
 
-    ///@}
-    ///@name Bytes and hex codes (SRGB only)
-    ///@{
-    /**
-     * @brief Create the string representation for this color in `#RRGGBB` format.
-     * @return A new string containing the hex color value, without alpha.
-     */
-    [[nodiscard]] std::string hex_string() const
-        requires IS_SRGB
-    {
-        return std::format("#{:02X}{:02X}{:02X}", to_byte(this->_ch1), to_byte(this->_ch2),
-                           to_byte(this->_ch3));
-    }
-
-    /**
-     * @brief Construct a color from 8-bit RGBA values.
-     * @param[in] r Red channel value
-     * @param[in] g Green channel value
-     * @param[in] b Blue channel value
-     * @param[in] a Alpha channel value (default 255)
-     * @return The color with each channel scaled to the 0-1 range.
-     */
-    static constexpr BasicRGB from_bytes(const std::uint8_t r,
-                                         const std::uint8_t g,
-                                         const std::uint8_t b,
-                                         const std::uint8_t a = 255) noexcept
-        requires IS_SRGB
-    {
-        return {to_float(r), to_float(g), to_float(b), to_float(a)};
-    }
-
-    /**
-     * @brief Create a color from a 32-bit integer in @c 0xRRGGBB format.
-     * @param[in] hex The color as an HTML color code
-     * @return The color, fully opaque.
-     */
-    static constexpr BasicRGB from_hex(const std::uint32_t hex) noexcept
-        requires IS_SRGB
-    {
-        // Shift the hex color code up one byte and fill with 0xFF
-        return from_rgba(hex << 8 | BYTE_MAX);
-    }
-
-    /**
-     * @brief Create a color from a 32-bit integer in @c 0xRRGGBBAA format.
-     * @param[in] color The color as a 32-bit integer
-     * @return The unpacked color.
-     */
-    static constexpr BasicRGB from_rgba(const std::uint32_t color) noexcept
-        requires IS_SRGB
-    {
-        return from_bytes(byte_at(color, 3), byte_at(color, 2), byte_at(color, 1),
-                          byte_at(color, 0));
-    }
-
-    /**
-     * @brief Converts the color to a 32-bit integer in @c 0xRRGGBBAA format.
-     * @return A 32-bit integer representing this color.
-     * @note Channels are stored as floats and rounded to the nearest byte,
-     * so the conversion loses precision.
-     */
-    [[nodiscard]] constexpr std::uint32_t to_rgba() const noexcept
-        requires IS_SRGB
-    {
-        return pack(to_byte(this->_ch1), to_byte(this->_ch2), to_byte(this->_ch3),
-                    to_byte(this->_a));
-    }
-
-    /**
-     * @brief Create a color from a 32-bit integer in @c 0xAARRGGBB format.
-     * @param[in] color The color as a 32-bit integer
-     * @return The unpacked color.
-     */
-    static constexpr BasicRGB from_argb(const std::uint32_t color) noexcept
-        requires IS_SRGB
-    {
-        // AARRGGBB -> RRGGBBAA
-        return from_rgba(std::rotl(color, 8));
-    }
-
-    /**
-     * @brief Copy this color into a 32-bit integer in @c 0xAARRGGBB format.
-     * @return A 32-bit integer representing this color.
-     * @note Channels are stored as floats and rounded to the nearest byte,
-     * so the conversion loses precision.
-     */
-    [[nodiscard]] constexpr std::uint32_t to_argb() const noexcept
-        requires IS_SRGB
-    {
-        // RRGGBBAA -> AARRGGBB
-        return std::rotr(to_rgba(), 8);
-    }
     ///@}
 };
 

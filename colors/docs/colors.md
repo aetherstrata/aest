@@ -61,11 +61,14 @@ by REFERENCE_WHITE_NITS first, as in `tf::PQ::encode(1000.f / REFERENCE_WHITE_NI
   HDR and out-of-gamut colors.
 - aest::colors::Premultiplied — a linear color with premultiplied alpha, such
   as `Premultiplied<LinSRGB>`, for compositing.
-- `from_hex()`, `from_rgba()`, `from_argb()` and `from_bytes()` build an SRGB
-  color from packed or 8-bit values; `to_rgba()`, `to_argb()` and
-  `hex_string()` pack it back, rounding each channel to the nearest byte.
-  They are members of SRGB only, the space hex codes and bytes are written
-  in, as in `SRGB::from_hex(0xFF7F50)`.
+- `from_hex()`, `from_rgba()` and `from_argb()` build a color from a hex
+  code, 8-bit channels or a packed 32-bit integer; `to_rgba()`, `to_argb()`
+  and `hex_string()` pack it back, rounding each channel to the nearest byte.
+  The values are always SRGB, the space hex codes and bytes are written in,
+  and are converted from or to the color's own space: `from_hex(0xFF7F50)`
+  is an SRGB color, `from_rgba<HSL>(0, 120, 80)` an HSL one, and
+  `to_rgba(color)` clips a color outside the SRGB gamut. To store a color's
+  own encoding instead, as for a GPU texture, use the `pack_*` functions.
 - aest::colors::ColorBase::opacity() — copies a color with a new alpha.
 - `std::format("{}", color)` prints the color space and its channels, as in
   `SRGB(1.000, 0.000, 0.500, 1.000)`; a float spec such as `{:.1f}` applies to
@@ -193,7 +196,7 @@ the other color, so a gradient from gray to red stays red. Without a mode,
   translucent color onto its background with aest::colors::over() first.
 
 ```cpp
-const SRGB text = SRGB::from_hex(0x777777);
+const SRGB text = from_hex(0x777777);
 const bool readable = contrast_ratio(text, css::white) >= 4.5f; // false: 4.48
 ```
 

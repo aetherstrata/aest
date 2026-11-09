@@ -15,6 +15,7 @@ export import :named_colors;
 export import :oklab;
 export import :format;
 export import :gamut;
+export import :hex;
 export import :operations;
 export import :packed;
 export import :space;

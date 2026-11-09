@@ -27,7 +27,7 @@ at 0 but not at 1. A value of 4 is a light four times brighter than the
 brightest color SRGB can encode, and the arithmetic operators keep it:
 
 ```cpp
-LinSRGB light = convert<LinSRGB>(SRGB::from_hex(0xFFCC88));
+LinSRGB light = from_hex<LinSRGB>(0xFFCC88);
 light *= 4.f;                      // exposure: scales the light, keeps alpha
 const LinSRGB lit = light * LinSRGB{0.25f, 0.5f, 0.5f}; // surface albedo
 ```

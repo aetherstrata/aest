@@ -19,6 +19,6 @@ int main()
     constexpr Matrix<double, 2, 2> swap = {{{0, 1}, {1, 0}}};
     const bool blasOk =
         aest::blas::multiply(swap, Vector<double, 2>{1, 2}) == Vector<double, 2>{2, 1};
-    const bool colorsOk = SRGB::from_hex(0x12'34'56).hex_string() == "#123456";
+    const bool colorsOk = hex_string(aest::colors::from_hex(0x12'34'56)) == "#123456";
     return blasOk && colorsOk ? 0 : 1;
 }
