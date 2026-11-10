@@ -10,9 +10,11 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <format>
 #include <limits>
+#include <random>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -2147,4 +2149,152 @@ TEST_CASE("de_2000 matches the Sharma reference data", "[colors][distance]")
     const SRGB red = from_hex(0xFF'00'00);
     CHECK_THAT(de_2000(red, from_hex(0x00'00'FF)), WithinAbs(55.799773, 1e-5));
     CHECK(de_2000(red, red.opacity(0.5f)) == 0.f);
+}
+
+namespace
+{
+/** @brief A random bit generator that replays a fixed sequence, for exact results. */
+struct SequenceGenerator
+{
+    /** @brief The type of the generated values. */
+    using result_type = std::uint32_t;
+
+    std::array<std::uint32_t, 3> _values{}; ///< The outputs, replayed in order.
+    std::size_t _next = 0;                  ///< Index of the next output.
+
+    /**
+     * @brief The smallest value the generator returns.
+     * @return 0.
+     */
+    static constexpr result_type min() { return 0; }
+
+    /**
+     * @brief The largest value the generator returns.
+     * @return 2^32 - 1.
+     */
+    static constexpr result_type max() { return 0xFF'FF'FF'FFu; }
+
+    /**
+     * @brief Return the next value of the sequence, wrapping at its end.
+     * @return The next value.
+     */
+    constexpr result_type operator()() { return _values[_next++ % _values.size()]; }
+};
+
+/**
+ * @brief Draw a random SRGB color from a fixed sequence.
+ * @param[in] values The three outputs the generator returns
+ * @return The random color.
+ */
+constexpr SRGB random_from(const std::array<std::uint32_t, 3> values)
+{
+    SequenceGenerator generator{values};
+    return aest::colors::random_color(generator);
+}
+
+/**
+ * @brief Draw a random HSL hue for @p color from a single output.
+ * @param[in] color The color whose hue to replace
+ * @param[in] value The output the generator returns
+ * @return The color with the drawn hue.
+ */
+constexpr HSL random_hue_from(const HSL& color, const std::uint32_t value)
+{
+    SequenceGenerator generator{{value, value, value}};
+    return aest::colors::random_hue<HSL>(color, generator);
+}
+} // namespace
+
+TEST_CASE("RandomBitGenerator takes generators with a power-of-two range", "[colors][random]")
+{
+    using aest::colors::RandomBitGenerator;
+
+    STATIC_REQUIRE(RandomBitGenerator<std::mt19937>);
+    STATIC_REQUIRE(RandomBitGenerator<std::mt19937_64>);
+    STATIC_REQUIRE(RandomBitGenerator<std::ranlux24>);
+    STATIC_REQUIRE(RandomBitGenerator<std::ranlux48>);
+    STATIC_REQUIRE(RandomBitGenerator<SequenceGenerator>);
+    STATIC_REQUIRE_FALSE(RandomBitGenerator<std::minstd_rand>);
+    STATIC_REQUIRE_FALSE(RandomBitGenerator<std::knuth_b>);
+}
+
+TEST_CASE("random_color scales the low 24 bits of each output", "[colors][random]")
+{
+    STATIC_REQUIRE(random_from({0u, 0x80'00'00u, 0xFF'FF'FFu}) == SRGB{0.f, 0.5f, 1.f - 0x1p-24f});
+
+    // The high bits are ignored, and the channels take the draws in order
+    STATIC_REQUIRE(random_from({0xAB'40'00'00u, 0xFF'00'00'00u, 0x01'C0'00'00u})
+                   == SRGB{0.25f, 0.f, 0.75f});
+}
+
+TEST_CASE("random_color gives the same colors on every standard library", "[colors][random]")
+{
+    using aest::colors::random_color;
+
+    // The default-seeded std::mt19937 sequence is fixed by the standard
+    std::mt19937 generator;
+    CHECK(random_color(generator)
+          == SRGB{0x91'BB'5C * 0x1p-24f, 0xAE'9E'F6 * 0x1p-24f, 0xE1'FA'EE * 0x1p-24f});
+
+    // It advanced by three outputs
+    CHECK(generator() == 3'586'334'585u);
+}
+
+TEST_CASE("random_color draws opaque colors in the given space", "[colors][random]")
+{
+    using aest::colors::random_color;
+
+    std::mt19937 generator{42u};
+    std::mt19937 replay{42u};
+    for (std::int32_t i = 0; i < 1000; ++i)
+    {
+        const DisplayP3 color = random_color<DisplayP3>(generator);
+        for (const float channel : {color.red(), color.green(), color.blue()})
+        {
+            CHECK(channel >= 0.f);
+            CHECK(channel < 1.f);
+        }
+        CHECK(color.alpha() == 1.f);
+
+        // The same seed draws the same colors
+        CHECK(random_color<DisplayP3>(replay) == color);
+    }
+}
+
+TEST_CASE("random_hue replaces the hue and keeps the rest", "[colors][random]")
+{
+    using aest::colors::convert;
+    using aest::colors::in;
+    using aest::colors::random_hue;
+
+    STATIC_REQUIRE(random_hue_from(HSL{300.f, 0.8f, 0.4f, 0.5f}, 0x40'00'00u)
+                   == HSL{90.f, 0.8f, 0.4f, 0.5f});
+    STATIC_REQUIRE(random_hue_from(HSL{300.f, 0.8f, 0.4f}, 0u) == HSL{0.f, 0.8f, 0.4f});
+
+    // OKLCH keeps the perceived lightness and chroma
+    const OKLCH base{0.7f, 0.1f, 40.f, 0.25f};
+    std::mt19937 generator{7u};
+    for (std::int32_t i = 0; i < 100; ++i)
+    {
+        const OKLCH color = random_hue(base, generator);
+        CHECK(color.lightness() == base.lightness());
+        CHECK(color.chroma() == base.chroma());
+        CHECK(color.alpha() == base.alpha());
+        CHECK(color.hue() >= 0.f);
+        CHECK(color.hue() < 360.f);
+    }
+
+    // OKLCH is the default, and in<> picks the space like the template argument
+    std::mt19937 first{7u};
+    std::mt19937 second{7u};
+    const SRGB coral = aest::colors::from_hex(0xFF'7F'50);
+    CHECK(random_hue(coral, first) == random_hue<OKLCH>(coral, second));
+    CHECK(random_hue(coral, first, in<HSL>) == random_hue<HSL>(coral, second));
+
+    // Gray colors have no hue and stay gray
+    const SRGB gray{0.5f, 0.5f, 0.5f};
+    const SRGB drawn = random_hue(gray, first);
+    CHECK_THAT(drawn.red(), WithinAbs(0.5, 1e-5));
+    CHECK_THAT(drawn.green(), WithinAbs(0.5, 1e-5));
+    CHECK_THAT(drawn.blue(), WithinAbs(0.5, 1e-5));
 }

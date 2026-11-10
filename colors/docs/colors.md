@@ -218,6 +218,37 @@ const SRGB text = from_hex(0x777777);
 const bool readable = contrast_ratio(text, css::white) >= 4.5f; // false: 4.48
 ```
 
+## Random colors
+
+The caller passes the random generator, so the library keeps no hidden
+state: a seed reproduces the colors, and threads draw from their own
+generators.
+
+- aest::colors::random_color() - an opaque color with each channel drawn
+  uniformly from [0, 1), in an encoded RGB space, SRGB by default. Uniform
+  channels are not uniform to the eye: many draws come out dull or dark.
+- aest::colors::random_hue() - a copy of a color with a hue drawn uniformly
+  from [0, 360), in OKLCH by default, so lightness, chroma and alpha stay.
+  Drawing from one base color gives a palette whose colors look equally
+  bright and vivid. The result can fall outside the gamut and clip when
+  converted back, and a gray color stays gray. Another space is picked as
+  the first template argument, as in `random_hue<HSL>(color, generator)`.
+
+```cpp
+std::mt19937 generator{seed};
+const SRGB noise = random_color(generator);
+const SRGB accent = random_hue(from_hex(0x3B82F6), generator);
+```
+
+Both take an aest::colors::RandomBitGenerator, a standard generator whose
+range is a power of two of at least 2^24, such as `std::mt19937` or
+`std::ranlux24`; `std::minstd_rand` is rejected. Each channel is the low 24
+bits of one output scaled to [0, 1), and not a
+`std::uniform_real_distribution`, whose algorithm each standard library
+picks: one seed gives the same colors with libstdc++, libc++ and the MSVC
+STL. random_color() takes three outputs, red first, and random_hue() one.
+Both are `constexpr` with a `constexpr` generator.
+
 ## Tonemapping
 
 The operators in aest::colors::tonemap compress HDR linear light into the

@@ -19,6 +19,7 @@ export import :gamut;
 export import :hex;
 export import :operations;
 export import :packed;
+export import :random;
 export import :space;
 export import :tonemap;
 export import :transfer;

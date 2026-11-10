@@ -13,6 +13,7 @@ aest_add_library(colors
         src/Hex.cppm
         src/Operations.cppm
         src/Packed.cppm
+        src/Random.cppm
         src/Space.cppm
         src/Tonemap.cppm
         src/Transfer.cppm
