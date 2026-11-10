@@ -59,6 +59,7 @@ constexpr double rrt_and_odt_fit(const double value)
  * @tparam Color A linear RGB space
  * @param[in] color The HDR color
  * @return The tonemapped color, every channel in [0, 1).
+ * @see @ref colors_ref_tonemap "Reinhard et al."
  */
 export template <LinearRGBSpace Color>
 constexpr Color reinhard(const Color& color)
@@ -80,6 +81,7 @@ constexpr Color reinhard(const Color& color)
  * @param[in] white The linear value that becomes 1
  * @return The tonemapped color.
  * @pre @p white is greater than 0.
+ * @see @ref colors_ref_tonemap "Reinhard et al."
  */
 export template <LinearRGBSpace Color>
 constexpr Color reinhard_extended(const Color& color, const float white)
@@ -103,6 +105,7 @@ constexpr Color reinhard_extended(const Color& color, const float white)
  * @tparam Color A linear RGB space
  * @param[in] color The HDR color
  * @return The tonemapped color, in the sRGB gamut with channels in [0, 1].
+ * @see @ref colors_ref_tonemap "BakingLab"
  */
 export template <LinearRGBSpace Color>
 constexpr Color aces_fitted(const Color& color)

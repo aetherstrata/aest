@@ -55,7 +55,10 @@ concept RGBGamut = requires {
 /** @brief Gamut tags, the first parameter of BasicRGB. */
 export namespace gamut
 {
-/** @brief The sRGB and Rec. 709 primaries, D65 white, from IEC 61966-2-1. */
+/**
+ * @brief The sRGB and Rec. 709 primaries, D65 white, from IEC 61966-2-1.
+ * @see @ref colors_ref_spaces "IEC 61966-2-1", @ref colors_ref_spaces "ITU-R BT.709"
+ */
 struct SRGB
 {
     static constexpr std::string_view NAME = "SRGB";       ///< Color space name.
@@ -65,7 +68,10 @@ struct SRGB
     static constexpr Chromaticity WHITE    = D65;          ///< White point.
 };
 
-/** @brief The DCI-P3 primaries with D65 white, from SMPTE EG 432-1. */
+/**
+ * @brief The DCI-P3 primaries with D65 white, from SMPTE EG 432-1.
+ * @see @ref colors_ref_spaces "SMPTE EG 432-1", @ref colors_ref_spaces "CSS Color 4"
+ */
 struct DisplayP3
 {
     static constexpr std::string_view NAME = "DisplayP3";    ///< Color space name.
@@ -75,7 +81,10 @@ struct DisplayP3
     static constexpr Chromaticity WHITE    = D65;            ///< White point.
 };
 
-/** @brief The Rec. 2020 / Rec. 2100 primaries, D65 white, from ITU-R BT.2020. */
+/**
+ * @brief The Rec. 2020 / Rec. 2100 primaries, D65 white, from ITU-R BT.2020.
+ * @see @ref colors_ref_spaces "ITU-R BT.2020", @ref colors_ref_spaces "ITU-R BT.2100"
+ */
 struct Rec2020
 {
     static constexpr std::string_view NAME = "Rec2020";      ///< Color space name.
@@ -88,6 +97,7 @@ struct Rec2020
 /**
  * @brief The ACES AP1 primaries with the ACES white point (about D60), from
  *        SMPTE ST 2065-1, the gamut of ACEScg.
+ * @see @ref colors_ref_spaces "SMPTE ST 2065-1", @ref colors_ref_spaces "ACEScg specification"
  */
 struct AP1
 {

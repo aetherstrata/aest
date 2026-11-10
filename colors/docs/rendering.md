@@ -40,8 +40,8 @@ and the operators in linear light, so they keep HDR values.
 
 ## Compositing
 
-aest::colors::over() puts one color over another with Porter-Duff
-source-over. It works in `Premultiplied<LinSRGB>`, where each channel is
+aest::colors::over() puts one color over another with
+@ref colors_ref_operations "Porter-Duff" source-over. It works in `Premultiplied<LinSRGB>`, where each channel is
 already multiplied by alpha: a premultiplied color is the light it adds plus
 the fraction of the background it covers, so compositing is one
 multiply-add, and the result is right for any pair of alphas.
@@ -113,10 +113,11 @@ visibly in the shadows, which is what the sRGB encoding is for.
 ## HDR output
 
 HDR displays take a signal relative to an absolute luminance (PQ) or to the
-display's peak (HLG), in the Rec. 2020 gamut. The library keeps linear 1.0
-as the reference white everywhere, 203 cd/m² after ITU-R BT.2408, so a scene
-lit for SDR keeps its brightness on an HDR display, and highlights above 1
-use the headroom:
+display's peak (HLG), in the Rec. 2020 gamut, as
+@ref colors_ref_transfer "ITU-R BT.2100" defines them. The library keeps
+linear 1.0 as the reference white everywhere, 203 cd/m² after
+@ref colors_ref_transfer "ITU-R BT.2408", so a scene lit for SDR keeps its brightness
+on an HDR display, and highlights above 1 use the headroom:
 
 ```cpp
 LinRec2020 scene = convert<LinRec2020>(sceneInLinSRGB); // same light, wider gamut

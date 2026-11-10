@@ -75,9 +75,10 @@ An RGB space is fixed by two independent choices, each a tag type:
 - the **transfer function**, in aest::colors::tf: how a channel value
   encodes linear light, and the range it is clamped to, checked by
   aest::colors::TransferFunction. tf::Linear is the identity; tf::SRGB is
-  the curve of IEC 61966-2-1, which Display P3 shares; tf::Rec709 is the
-  camera OETF of BT.709 and SDR BT.2020; tf::PQ and tf::HLG are the HDR
-  signals of Rec. 2100. HDR tags set `IS_HDR`
+  the curve of @ref colors_ref_transfer "IEC 61966-2-1", which Display P3
+  shares; tf::Rec709 is the camera OETF of @ref colors_ref_transfer "ITU-R BT.709"
+  and SDR @ref colors_ref_transfer "ITU-R BT.2020"; tf::PQ and tf::HLG are the
+  HDR signals of @ref colors_ref_transfer "ITU-R BT.2100". HDR tags set `IS_HDR`
   (aest::colors::HDRTransfer): their signal is in [0, 1] but not relative
   to the display's white, so aest::colors::BoundedRGBSpace, and with it HSL
   and HSV, leaves them out.
@@ -95,8 +96,8 @@ has its own name, as ACEScg does.
 | gamut::AP1       |           | ACEScg       |            |           |            |
 
 Linear 1.0 is the reference white everywhere: the brightest SDR white, and
-203 cd/m² (aest::colors::REFERENCE_WHITE_NITS) for PQ, after ITU-R BT.2408.
-So an SDR color and an HDR one convert into each other without a scale
+203 cd/m² (aest::colors::REFERENCE_WHITE_NITS) for PQ, after
+@ref colors_ref_transfer "ITU-R BT.2408". So an SDR color and an HDR one convert into each other without a scale
 factor, and SRGB white lands on the PQ and HLG reference white.
 
 ### Alpha

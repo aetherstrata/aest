@@ -4,6 +4,7 @@
  * @file Packed.cppm
  * @brief Partition `aest.colors:packed`: GPU pixel formats, packed and
  *        unpacked with the bit layouts of Vulkan and Direct3D.
+ * @see @ref colors_ref_packed "Vulkan specification"
  */
 module;
 #include <algorithm>
@@ -207,6 +208,7 @@ concept PackableLinearRGB = LinearRGBSpace<T> || IS_PREMULTIPLIED_RGB<T>;
  *
  * @param[in] value The float to convert
  * @return The bits of the half.
+ * @see @ref colors_ref_packed "IEEE 754-2019"
  */
 constexpr std::uint16_t to_half(const float value)
 {
@@ -227,6 +229,7 @@ constexpr std::uint16_t to_half(const float value)
  * @brief Converts an IEEE 754 half to a float, exactly.
  * @param[in] half The bits of the half
  * @return The value: subnormals, signed zeros, infinities and NaN included.
+ * @see @ref colors_ref_packed "IEEE 754-2019"
  */
 constexpr float from_half(const std::uint16_t half)
 {
@@ -310,6 +313,7 @@ constexpr Color unpack_rgb10a2(const std::uint32_t bits)
  * @tparam Color A linear RGB space, or its premultiplied form
  * @param[in] color The color to pack
  * @return The halves red, green, blue, alpha.
+ * @see @ref colors_ref_packed "IEEE 754-2019"
  */
 template <PackableLinearRGB Color>
 constexpr std::array<std::uint16_t, 4> pack_rgba16f(const Color& color)
@@ -325,6 +329,7 @@ constexpr std::array<std::uint16_t, 4> pack_rgba16f(const Color& color)
  * @tparam Color The color type the halves are in
  * @param[in] halves The halves red, green, blue, alpha
  * @return The color.
+ * @see @ref colors_ref_packed "IEEE 754-2019"
  */
 template <PackableLinearRGB Color>
 constexpr Color unpack_rgba16f(const std::array<std::uint16_t, 4>& halves)
@@ -346,6 +351,7 @@ constexpr Color unpack_rgba16f(const std::array<std::uint16_t, 4>& halves)
  * @tparam Color A linear RGB space, or its premultiplied form
  * @param[in] color The color to pack
  * @return The packed 32-bit word.
+ * @see @ref colors_ref_packed "Khronos Data Format Specification"
  */
 template <PackableLinearRGB Color>
 constexpr std::uint32_t pack_r11g11b10f(const Color& color)
@@ -360,6 +366,7 @@ constexpr std::uint32_t pack_r11g11b10f(const Color& color)
  * @tparam Color The color type the word is in
  * @param[in] bits The packed word
  * @return The color, opaque.
+ * @see @ref colors_ref_packed "Khronos Data Format Specification"
  */
 template <PackableLinearRGB Color>
 constexpr Color unpack_r11g11b10f(const std::uint32_t bits)
@@ -382,6 +389,7 @@ constexpr Color unpack_r11g11b10f(const std::uint32_t bits)
  * @tparam Color A linear RGB space, or its premultiplied form
  * @param[in] color The color to pack
  * @return The packed 32-bit word.
+ * @see @ref colors_ref_packed "Khronos Data Format Specification"
  */
 template <PackableLinearRGB Color>
 constexpr std::uint32_t pack_rgb9e5(const Color& color)
@@ -414,6 +422,7 @@ constexpr std::uint32_t pack_rgb9e5(const Color& color)
  * @tparam Color The color type the word is in
  * @param[in] bits The packed word
  * @return The color, opaque.
+ * @see @ref colors_ref_packed "Khronos Data Format Specification"
  */
 template <PackableLinearRGB Color>
 constexpr Color unpack_rgb9e5(const std::uint32_t bits)

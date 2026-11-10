@@ -17,6 +17,7 @@ import :hex;
  *
  * Write `css::coral` after `using namespace aest::colors;`, or add
  * `using namespace aest::colors::css;` where bare names are wanted.
+ * @see @ref colors_ref_operations "CSS Color 4"
  */
 export namespace aest::colors::css
 {

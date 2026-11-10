@@ -50,6 +50,7 @@ constexpr Matrix3 OKLAB_TO_LMS = blas::inverse(LMS_TO_OKLAB);
  * color differences and for gradients that keep their lightness even.
  * Channels are not clamped: HDR colors have L above 1, and colors outside
  * any display's gamut are valid until converted to it.
+ * @see @ref colors_ref_spaces "Ottosson 2020", @ref colors_ref_spaces "CSS Color 4"
  */
 export class OKLab final : public ColorBase<OKLab>
 {
@@ -104,6 +105,7 @@ public:
  * The hue is wrapped to the [0, 360) range and chroma clamped at 0; for
  * grays, whose chroma is 0, the hue has no meaning. Lightness is not
  * clamped.
+ * @see @ref colors_ref_spaces "Ottosson 2020"
  */
 export class OKLCH final : public ColorBase<OKLCH>
 {

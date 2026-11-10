@@ -26,6 +26,7 @@ export namespace aest::colors
  *
  * @tparam RGB The encoded RGB space, such as SRGB: its channels must be in
  *         the 0-1 range, so linear spaces are rejected.
+ * @see @ref colors_ref_spaces "CSS Color 4"
  */
 template <BoundedRGBSpace RGB>
 class BasicHSL final : public ColorBase<BasicHSL<RGB>>
@@ -92,6 +93,7 @@ public:
  *
  * @tparam RGB The encoded RGB space, such as SRGB: its channels must be in
  *         the 0-1 range, so linear spaces are rejected.
+ * @see @ref colors_ref_spaces "Smith 1978"
  */
 template <BoundedRGBSpace RGB>
 class BasicHSV final : public ColorBase<BasicHSV<RGB>>

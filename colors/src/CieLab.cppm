@@ -66,6 +66,7 @@ constexpr double lab_expand(const double value)
  * formulas, de_76(), de_94() and de_2000(); OKLab is more
  * even across hues for gradients and adjustments. Channels are not clamped:
  * HDR colors have L above 100.
+ * @see @ref colors_ref_spaces "ISO/CIE 11664-4", @ref colors_ref_spaces "CSS Color 4"
  */
 export class CIELab final : public ColorBase<CIELab>
 {
@@ -118,6 +119,7 @@ public:
  * The values match CSS `lch()`. The hue is wrapped to the [0, 360) range
  * and chroma clamped at 0; for grays, whose chroma is 0, the hue has no
  * meaning. Lightness is not clamped.
+ * @see @ref colors_ref_spaces "ISO/CIE 11664-4"
  */
 export class CIELCH final : public ColorBase<CIELCH>
 {

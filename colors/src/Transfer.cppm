@@ -114,6 +114,8 @@ concept HDRTransfer = TransferFunction<T> && requires { requires T::IS_HDR; };
  * Divide an absolute luminance by it to get a linear value, as in
  * `tf::PQ::encode(1000.f / REFERENCE_WHITE_NITS)` for the PQ signal of
  * 1000 cd/m², or the linear headroom of a 1000 cd/m² display.
+ *
+ * @see @ref colors_ref_transfer "ITU-R BT.2408"
  */
 export inline constexpr float REFERENCE_WHITE_NITS = 203.f;
 } // namespace aest::colors
@@ -158,6 +160,8 @@ struct Linear
  *        near black, then a power curve with exponent 2.4.
  *
  * Channels are clamped to the 0-1 range. Display P3 uses it too.
+ *
+ * @see @ref colors_ref_transfer "IEC 61966-2-1"
  */
 struct SRGB
 {
@@ -168,8 +172,6 @@ struct SRGB
      * @brief Encodes linear light into an sRGB channel value.
      * @param[in] value The linear value, 0 or greater
      * @return The encoded value in the 0-1 range: values from 1 up give 1.
-     * @note Implemented as defined by W3C in
-     *       "https://www.w3.org/Graphics/Color/sRGB.html".
      * @note Not constexpr: std::pow is constexpr only since C++26.
      */
     static float encode(const float value)
@@ -185,8 +187,6 @@ struct SRGB
      * @brief Decodes an sRGB channel value to linear light.
      * @param[in] value The encoded value in the 0-1 range
      * @return The linear value in the 0-1 range.
-     * @note Implemented as defined by W3C in
-     *       "https://www.w3.org/Graphics/Color/sRGB.html".
      * @note Not constexpr: std::pow is constexpr only since C++26.
      */
     static float decode(const float value)
@@ -215,6 +215,9 @@ struct SRGB
  * difference is the system gamma of about 1.2 that video adds for dim
  * viewing. Channels are clamped to the 0-1 range, on full range signals:
  * limited "TV" range is a quantization step this tag leaves out.
+ *
+ * @see @ref colors_ref_transfer "ITU-R BT.709", @ref colors_ref_transfer "ITU-R BT.2020", @ref
+ * colors_ref_transfer "ITU-R BT.1886"
  */
 struct Rec709
 {
@@ -269,6 +272,8 @@ struct Rec709
  * Linear 1.0 is REFERENCE_WHITE_NITS, 203 cd/m², so it encodes to about 58%;
  * the signal 1.0 is 10000 cd/m², linear 49.26. Channels are clamped to the
  * 0-1 range.
+ *
+ * @see @ref colors_ref_transfer "SMPTE ST 2084", @ref colors_ref_transfer "ITU-R BT.2100"
  */
 struct PQ
 {
@@ -319,6 +324,8 @@ struct PQ
  * is linear 3.77. Only the OETF and its inverse are applied: the linear
  * values are scene light, and no OOTF maps them to the light of a display
  * with a given peak. Channels are clamped to the 0-1 range.
+ *
+ * @see @ref colors_ref_transfer "ARIB STD-B67", @ref colors_ref_transfer "ITU-R BT.2100"
  */
 struct HLG
 {

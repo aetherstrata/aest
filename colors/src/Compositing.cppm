@@ -40,6 +40,7 @@ concept LinearSpace = ColorType<T> && std::derived_from<T, ColorArithmetic<T>>;
  * color whose alpha is 0 back to @p Space gives transparent black.
  *
  * @tparam Space The linear color space of the channels, such as LinSRGB
+ * @see @ref colors_ref_operations "Porter-Duff"
  */
 export template <LinearSpace Space>
 class Premultiplied final : public ColorBase<Premultiplied<Space>>
@@ -231,6 +232,7 @@ struct LinearSpaceOf<Premultiplied<Space>>
  * @param[in] space The working space, e.g. `in<LinSRGB>`; the LinearSpaceOf
  *            @p Background when omitted
  * @return The composited color, in the type of @p background.
+ * @see @ref colors_ref_operations "Porter-Duff"
  */
 export template <typename Space = void, ColorType Foreground, ColorType Background>
     requires LinearSpace<WorkingSpace<Space, Background>>

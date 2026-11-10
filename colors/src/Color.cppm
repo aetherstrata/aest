@@ -384,6 +384,7 @@ private:
  * `(0.9505, 1, 1.0891)`. Channels are not clamped: XYZ itself has no bounds,
  * and colors outside a gamut clip only when converted to it. Like LinSRGB, it
  * is linear in light, so it has the arithmetic operators.
+ * @see @ref colors_ref_spaces "CIE 015:2018"
  */
 export class XYZ final : public ColorBase<XYZ>, public ColorArithmetic<XYZ>
 {

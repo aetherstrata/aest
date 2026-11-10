@@ -142,6 +142,7 @@ constexpr Color darken(const Color& color,
 /**
  * @brief How mix() goes around the hue circle between two hues, as in CSS
  *        Color 4.
+ * @see @ref colors_ref_operations "CSS Color 4"
  */
 enum class HueMode : std::uint8_t
 {
@@ -267,6 +268,7 @@ concept HueInterpolationSpace =
  * @param[in] mode The arc of the hue circle to follow
  * @param[in] space The working space, e.g. `in<OKLCH>`
  * @return The blended color.
+ * @see @ref colors_ref_operations "CSS Color 4"
  */
 template <typename Space = void, ColorType Color>
     requires HueInterpolationSpace<WorkingSpace<Space, Color>>
@@ -315,6 +317,7 @@ From mix(const From& from, const To& to, float amount, HueMode mode, In<Space> s
  * @tparam Color The color type of @p color
  * @param[in] color The color to measure
  * @return The relative luminance, 0 or greater.
+ * @see @ref colors_ref_operations "WCAG 2.2"
  */
 template <ColorType Color>
     requires ConvertibleTo<XYZ, Color>
@@ -338,6 +341,7 @@ constexpr float luminance(const Color& color)
  * @param[in] color2 The other color
  * @return The contrast ratio, in the 1-21 range: 1 for equal luminances,
  *         21 for black on white.
+ * @see @ref colors_ref_operations "WCAG 2.2"
  */
 template <ColorType Color1, ColorType Color2>
     requires ConvertibleTo<SRGB, Color1> && ConvertibleTo<SRGB, Color2>
@@ -542,6 +546,7 @@ constexpr Color complement(const Color& color, [[maybe_unused]] In<Space> space 
  * @tparam Color An encoded RGB space, such as SRGB
  * @param[in] color The color to invert
  * @return The inverted color.
+ * @see @ref colors_ref_operations "CSS Color 4"
  */
 template <BoundedRGBSpace Color>
 constexpr Color invert(const Color& color)

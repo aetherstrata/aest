@@ -32,14 +32,17 @@ for color math. aest::colors::RGBSpace, aest::colors::LinearRGBSpace and
 aest::colors::BoundedRGBSpace tell the kinds apart.
 
 Rec709 and Rec2020 are the SDR video encodings: Rec709 has the sRGB
-primaries, so it differs from SRGB only in its curve, the BT.709 OETF.
+primaries, so it differs from SRGB only in its curve, the OETF of
+@ref colors_ref_transfer "ITU-R BT.709", which
+@ref colors_ref_transfer "ITU-R BT.2020" shares for SDR.
 Like HLG, the library applies the OETF and its inverse, so the linear values
-are scene light; a display decodes the signal with BT.1886 instead, about a
-2.4 power. Channels are full range: the library has no limited "TV" range.
+are scene light; a display decodes the signal with
+@ref colors_ref_transfer "BT.1886" instead, about a 2.4 power. Channels are full range: the library has no limited "TV" range.
 
-Rec2100PQ and Rec2100HLG are the HDR signals of Rec. 2100. Linear 1.0 is the
-BT.2408 reference white, aest::colors::REFERENCE_WHITE_NITS, 203 cd/m²: PQ encodes it to 58%
-and reaches 10000 cd/m² at linear 49.26; HLG encodes it to 75% and reaches
+Rec2100PQ and Rec2100HLG are the HDR signals of
+@ref colors_ref_transfer "ITU-R BT.2100". Linear 1.0 is the
+@ref colors_ref_transfer "BT.2408" reference white, aest::colors::REFERENCE_WHITE_NITS,
+203 cd/m²: PQ encodes it to 58% and reaches 10000 cd/m² at linear 49.26; HLG encodes it to 75% and reaches
 its peak at linear 3.77, without an OOTF. For a luminance in cd/m², divide
 by REFERENCE_WHITE_NITS first, as in `tf::PQ::encode(1000.f / REFERENCE_WHITE_NITS)`.
 
@@ -57,11 +60,11 @@ by REFERENCE_WHITE_NITS first, as in `tf::PQ::encode(1000.f / REFERENCE_WHITE_NI
   Ottosson and its polar form: lightness L (1 for white), then a and b, or
   chroma and hue. Equal distances look about equally different, and changing
   OKLCH chroma or hue keeps the perceived lightness. The matrices are the
-  ones of CSS Color 4, so D65 white has no chroma. Not clamped, so they hold
+  ones of @ref colors_ref_spaces "CSS Color 4", so D65 white has no chroma. Not clamped, so they hold
   HDR and out-of-gamut colors.
 - aest::colors::CIELab, aest::colors::CIELCH - CIE 1976 L\*a\*b\* and its
-  polar form, relative to D50 with the Bradford adaptation of CSS Color 4,
-  so the values match CSS `lab()` and `lch()`: lightness L (100 for white),
+  polar form, relative to D50 with the Bradford adaptation of
+  @ref colors_ref_spaces "CSS Color 4", so the values match CSS `lab()` and `lch()`: lightness L (100 for white),
   then a and b, or chroma and hue. They are the spaces of the CIE color
   difference formulas; OKLab is more even across hues for everything else.
   Not clamped.
@@ -111,8 +114,8 @@ fade.
 
 ## Compositing
 
-aest::colors::over() composites a color over another with Porter-Duff
-source-over: it converts both to premultiplied linear light, computes
+aest::colors::over() composites a color over another with
+@ref colors_ref_operations "Porter-Duff" source-over: it converts both to premultiplied linear light, computes
 `foreground + background * (1 - foreground alpha)`, and returns the result in
 the background's type. Its working space, an aest::colors::LinearSpace, is
 the first template argument; when omitted it is the
@@ -179,7 +182,7 @@ const DisplayP3 blend = mix(convert<DisplayP3>(srgbColor), p3Color, 0.5f);
 ## Hue interpolation
 
 In a space with a hue, HSL, HSV or OKLCH, mix() goes around the hue circle.
-An aest::colors::HueMode picks the arc, as in CSS Color 4:
+An aest::colors::HueMode picks the arc, as in @ref colors_ref_operations "CSS Color 4":
 
 | Mode | Arc |
 |------|-----|
@@ -205,8 +208,8 @@ the other color, so a gradient from gray to red stays red. Without a mode,
   its XYZ, ignoring alpha: for LinSRGB its channels weighted with the
   Rec. 709 coefficients, about 0.2126, 0.7152 and 0.0722. White gives 1,
   black 0, and HDR colors more than 1.
-- aest::colors::contrast_ratio() - the WCAG 2.x contrast ratio of two colors,
-  from 1 to 21, in either order. Both are measured as a display shows them,
+- aest::colors::contrast_ratio() - the @ref colors_ref_operations "WCAG 2.x"
+  contrast ratio of two colors, from 1 to 21, in either order. Both are measured as a display shows them,
   through SRGB, so HDR values clip to white. Alpha is ignored: composite a
   translucent color onto its background with aest::colors::over() first.
 
@@ -219,7 +222,7 @@ const bool readable = contrast_ratio(text, css::white) >= 4.5f; // false: 4.48
 
 The operators in aest::colors::tonemap compress HDR linear light into the
 [0, 1] range of a display. Each takes and returns a color of any linear RGB
-space and keeps alpha.
+space and keeps alpha. @ref colors_ref_tonemap lists their sources.
 
 | Operator | Does |
 |----------|------|
@@ -235,7 +238,7 @@ const SRGB pixel = convert<SRGB>(tonemap::aces_fitted(hdr));
 ## Packed formats
 
 Functions to pack a color into the pixel formats of GPUs and back, with the
-bit layouts of Vulkan and Direct3D. Each `pack_*()` takes a color and
+bit layouts of @ref colors_ref_packed "Vulkan" and Direct3D. Each `pack_*()` takes a color and
 returns the stored bits; each `unpack_*<Color>()` takes the bits and the
 color type to read them as. They are all `constexpr`.
 
@@ -256,7 +259,7 @@ aest::colors::PackableRGB and aest::colors::PackableLinearRGB name the
 accepted types.
 
 aest::colors::to_half() and aest::colors::from_half() convert single floats
-to and from IEEE 754 halves, with IEEE rounding, infinities and NaN.
+to and from @ref colors_ref_packed "IEEE 754" halves, with IEEE rounding, infinities and NaN.
 
 ## Design
 
@@ -265,3 +268,4 @@ to and from IEEE 754 halves, with IEEE rounding, infinities and NaN.
 - @subpage colors_extending - adding a color space or an operation.
 - @subpage colors_rendering - using the library in a rendering pipeline:
   linear light, HDR values and compositing.
+- @subpage colors_references - the standards the library implements.
