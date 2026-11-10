@@ -41,7 +41,7 @@ one is expected, and the conversion between them is always explicit.
 | Linear     | LinSRGB, LinDisplayP3, LinRec2020, ACEScg, `Premultiplied<S>` | Proportional to light: blending, lighting and compositing belong here           |
 | Derived    | HSL, HSV, `BasicHSL<S>`, `BasicHSV<S>`                        | Cylindrical views of an encoded RGB space, for picking and adjusting colors     |
 | Absolute   | XYZ                                                           | CIE 1931 tristimulus values, independent of any display: links the gamuts       |
-| Perceptual | OKLab, OKLCH                                                  | Spaced as the eye sees: color differences, perceptual gradients and adjustments |
+| Perceptual | OKLab, OKLCH, CIELab, CIELCH                                  | Spaced as the eye sees: color differences, perceptual gradients and adjustments |
 
 ### Ranges
 
@@ -57,6 +57,8 @@ value of a color type is always valid for that space.
 | XYZ                | Unclamped: colors outside a gamut clip only when converted to it       | [0, 1] |
 | OKLab              | Unclamped                                                              | [0, 1] |
 | OKLCH              | Lightness unclamped; chroma clamped at 0; hue wrapped to [0, 360)      | [0, 1] |
+| CIELab             | Unclamped                                                              | [0, 1] |
+| CIELCH             | Lightness unclamped; chroma clamped at 0; hue wrapped to [0, 360)      | [0, 1] |
 
 Channels must be finite: NaN and infinities are a precondition violation,
 not a value the constructors repair.
@@ -133,8 +135,10 @@ XYZ                                  root, CIE 1931 relative to D65
 │   ├── Rec2100PQ                    tf::PQ
 │   └── Rec2100HLG                   tf::HLG
 ├── ACEScg                           matrix of gamut::AP1, Bradford to D65
-└── OKLab                            LMS matrix, cube root, OKLab matrix
-    └── OKLCH                        polar form: chroma and hue
+├── OKLab                            LMS matrix, cube root, OKLab matrix
+│   └── OKLCH                        polar form: chroma and hue
+└── CIELab                           Bradford to D50, cube root
+    └── CIELCH                       polar form: chroma and hue
 ```
 
 Every `BasicRGB<G, tf::Linear>` is a child of XYZ, and every other
@@ -211,18 +215,18 @@ The library targets C++20, where `<cmath>` is not `constexpr`. Code paths
 that need it run only at run time; the rest is `constexpr` on GCC, Clang
 and MSVC.
 
-| Compile time                                                                                                                  | Run time only                                                       |
-|-------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------|
-| Construction, hex and byte packing, opacity(), `==`                                                                           | tf::SRGB, tf::Rec709, tf::PQ and tf::HLG (`std::pow`, `std::log`)   |
-| Encoded RGB ↔ HSL ↔ HSV conversions                                                                                           | euclidean() (`std::sqrt`)                                           |
-| lighten(), darken(), saturate(), desaturate(), grayscale(), rotate_hue(), complement() and mix() when no step needs `<cmath>` | Anything through an encoding                                        |
-| Premultiplied conversions, over() of linear colors                                                                            | contrast_ratio() (`std::pow`)                                       |
-| luminance() of linear colors                                                                                                  |                                                                     |
-| OKLab → XYZ                                                                                                                   | OKLab ← XYZ (`std::cbrt`), OKLab ↔ OKLCH (`std::atan2`, `std::cos`) |
-| Linear RGB ↔ XYZ (matrices derived at compile time)                                                                           |                                                                     |
-| Tonemapping operators                                                                                                         |                                                                     |
-| invert()                                                                                                                      |                                                                     |
-| Packing and unpacking, to_half() and from_half()                                                                              |                                                                     |
+| Compile time                                                                                                                  | Run time only                                                                                |
+|-------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| Construction, hex and byte packing, opacity(), `==`                                                                           | tf::SRGB, tf::Rec709, tf::PQ and tf::HLG (`std::pow`, `std::log`)                            |
+| Encoded RGB ↔ HSL ↔ HSV conversions                                                                                           | euclidean(), de_76(), de_94(), de_2000() (`std::sqrt`)                                       |
+| lighten(), darken(), saturate(), desaturate(), grayscale(), rotate_hue(), complement() and mix() when no step needs `<cmath>` | Anything through an encoding                                                                 |
+| Premultiplied conversions, over() of linear colors                                                                            | contrast_ratio() (`std::pow`)                                                                |
+| luminance() of linear colors                                                                                                  |                                                                                              |
+| OKLab → XYZ, CIELab → XYZ                                                                                                     | OKLab, CIELab ← XYZ (`std::cbrt`), OKLab ↔ OKLCH, CIELab ↔ CIELCH (`std::atan2`, `std::cos`) |
+| Linear RGB ↔ XYZ (matrices derived at compile time)                                                                           |                                                                                              |
+| Tonemapping operators                                                                                                         |                                                                                              |
+| invert()                                                                                                                      |                                                                                              |
+| Packing and unpacking, to_half() and from_half()                                                                              |                                                                                              |
 
 A function marked `constexpr` whose path reaches a run-time step simply
 cannot be used in a constant expression for those arguments: mix() of two

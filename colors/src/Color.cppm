@@ -12,6 +12,7 @@ module;
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
+#include <numbers>
 #include <string_view>
 export module aest.colors:color;
 
@@ -104,6 +105,9 @@ constexpr std::array<char, Size> join_names(const std::initializer_list<std::str
         out = std::ranges::copy(part, out).out;
     return chars;
 }
+
+/** @brief Degrees in a radian. */
+constexpr double DEGREES_PER_RADIAN = 180.0 / std::numbers::pi;
 
 /**
  * @brief Wrap a hue angle to the [0, 360) range.

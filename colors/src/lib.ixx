@@ -6,6 +6,7 @@
  */
 export module aest.colors;
 
+export import :cie_lab;
 export import :color;
 export import :compositing;
 export import :converter;

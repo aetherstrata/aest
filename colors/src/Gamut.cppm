@@ -27,6 +27,12 @@ export using Chromaticity = std::array<double, 2>;
 export inline constexpr Chromaticity D65 = {0.3127, 0.3290};
 
 /**
+ * @brief Chromaticity of the D50 white point, as CSS Color 4 and the ICC
+ *        profile connection space define it: the white of CIELab.
+ */
+export inline constexpr Chromaticity D50 = {0.3457, 0.3585};
+
+/**
  * @brief A gamut tag, the first parameter of BasicRGB.
  *
  * A tag is a type with a static `NAME`, used in the color space name, and
@@ -113,7 +119,8 @@ constexpr Matrix3 BRADFORD = {{
  */
 constexpr Vector3 xyz_of(const Chromaticity& chromaticity)
 {
-    const auto [x, y] = chromaticity;
+    const double x = chromaticity[0];
+    const double y = chromaticity[1];
     return {x / y, 1, (1 - x - y) / y};
 }
 

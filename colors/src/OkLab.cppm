@@ -8,7 +8,6 @@
 module;
 #include <array>
 #include <cmath>
-#include <numbers>
 #include <string_view>
 export module aest.colors:oklab;
 
@@ -41,9 +40,6 @@ constexpr Matrix3 LMS_TO_XYZ = blas::inverse(XYZ_TO_LMS);
 
 /** @brief Matrix from OKLab back to the cube roots of LMS. */
 constexpr Matrix3 OKLAB_TO_LMS = blas::inverse(LMS_TO_OKLAB);
-
-/** @brief Degrees in a radian. */
-constexpr double DEGREES_PER_RADIAN = 180.0 / std::numbers::pi;
 
 /**
  * @brief A color in OKLab, the perceptual space by Björn Ottosson.

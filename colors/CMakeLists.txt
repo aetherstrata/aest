@@ -1,5 +1,6 @@
 aest_add_library(colors
     MODULES src/lib.ixx
+        src/CieLab.cppm
         src/Color.cppm
         src/Compositing.cppm
         src/Converter.cppm

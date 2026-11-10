@@ -375,7 +375,7 @@ TEST_CASE("Conversions chain through the conversion tree", "[colors][conversions
 
     const HSV hsv = convert<HSV>(linear);
     CHECK(hsv == convert<HSV>(convert<SRGB>(linear)));
-    CHECK_THAT(hsv.hue(), WithinAbs(210., 1e-3));
+    CHECK_THAT(hsv.hue(), WithinAbs(210., 1e-5));
 }
 
 namespace
@@ -1214,7 +1214,7 @@ TEST_CASE("HSL over DisplayP3 converts through DisplayP3", "[colors][cylindrical
     // primaries, so the same color has another hue in the HSL of another gamut
     const HSL fromP3 = convert<HSL>(HSLP3{210.f, 0.5f, 0.5f, 0.25f});
     CHECK(fromP3.alpha() == 0.25f);
-    CHECK_THAT(fromP3.hue(), WithinAbs(204.460031, 1e-3));
+    CHECK_THAT(fromP3.hue(), WithinAbs(204.460021, 1e-6));
     CHECK_THAT(fromP3.saturation(), WithinAbs(0.72279826, 1e-06));
     CHECK_THAT(fromP3.lightness(), WithinAbs(0.44760169, 1e-06));
 }
@@ -2000,4 +2000,151 @@ TEST_CASE("invert flips encoded RGB channels and keeps alpha", "[colors][operati
     STATIC_REQUIRE(Invertible<DisplayP3>);
     STATIC_REQUIRE_FALSE(Invertible<LinSRGB>);
     STATIC_REQUIRE_FALSE(Invertible<HSL>);
+}
+
+namespace
+{
+using aest::colors::CIELab;
+using aest::colors::CIELCH;
+
+/**
+ * @brief Checks the channels of @p color against expected CIELab values.
+ * @param[in] color The color to check
+ * @param[in] l Expected lightness
+ * @param[in] a Expected a*
+ * @param[in] b Expected b*
+ */
+void check_cielab(const CIELab& color, const double l, const double a, const double b)
+{
+    CHECK_THAT(color.lightness(), WithinAbs(l, 1e-5));
+    CHECK_THAT(color.a(), WithinAbs(a, 1e-5));
+    CHECK_THAT(color.b(), WithinAbs(b, 1e-5));
+}
+} // namespace
+
+TEST_CASE("CIELab matches CSS lab(), relative to D50", "[colors][cielab]")
+{
+    using aest::colors::convert;
+
+    STATIC_REQUIRE(CIELab::TYPE == "CIELab");
+    check_cielab(convert<CIELab>(SRGB{1.f, 1.f, 1.f}), 100., 0., 0.);
+    check_cielab(convert<CIELab>(SRGB{1.f, 0.f, 0.f}), 54.290541, 80.804928, 69.890965);
+    check_cielab(convert<CIELab>(SRGB{0.f, 1.f, 0.f}), 87.818534, -79.271061, 80.994581);
+    check_cielab(convert<CIELab>(SRGB{0.f, 0.f, 1.f}), 29.568302, 68.287365, -112.029710);
+    check_cielab(convert<CIELab>(SRGB{0.5f, 0.5f, 0.5f}), 53.388965, 0., 0.);
+
+    // Near black, the linear segment takes over from the cube root
+    check_cielab(convert<CIELab>(SRGB{}), 0., 0., 0.);
+    CHECK(convert<CIELab>(SRGB{0.5f, 0.5f, 0.5f, 0.25f}).alpha() == 0.25f);
+}
+
+TEST_CASE("CIELCH is the polar form of CIELab", "[colors][cielab]")
+{
+    using aest::colors::convert;
+
+    STATIC_REQUIRE(CIELCH::TYPE == "CIELCH");
+    STATIC_REQUIRE(CIELCH{50.f, -1.f, -10.f} == CIELCH{50.f, 0.f, 350.f});
+
+    const CIELCH red = convert<CIELCH>(SRGB{1.f, 0.f, 0.f});
+    CHECK_THAT(red.lightness(), WithinAbs(54.290541, 1e-5));
+    CHECK_THAT(red.chroma(), WithinAbs(106.837182, 1e-5));
+    CHECK_THAT(red.hue(), WithinAbs(40.857657, 1e-5));
+    // One float step is about 3e-5 at 301 degrees
+    CHECK_THAT(convert<CIELCH>(SRGB{0.f, 0.f, 1.f}).hue(), WithinAbs(301.364268, 3e-5));
+}
+
+TEST_CASE("CIELab and CIELCH round-trip through the tree", "[colors][cielab]")
+{
+    using aest::colors::convert;
+
+    for (const SRGB color : {from_hex(0x33'99'CC), from_hex(0xE0'40'10), from_hex(0x01'02'03)})
+    {
+        const SRGB viaLab = convert<SRGB>(convert<CIELab>(color));
+        const SRGB viaLch = convert<SRGB>(convert<CIELCH>(color));
+        CHECK_THAT(viaLab.red(), WithinAbs(color.red(), 1e-5));
+        CHECK_THAT(viaLab.green(), WithinAbs(color.green(), 1e-5));
+        CHECK_THAT(viaLab.blue(), WithinAbs(color.blue(), 1e-5));
+        CHECK_THAT(viaLch.green(), WithinAbs(color.green(), 1e-5));
+    }
+
+    // Unclamped, so HDR light and wide gamuts survive
+    const LinDisplayP3 back = convert<LinDisplayP3>(convert<CIELab>(LinDisplayP3{2.f, 0.f, 0.f}));
+    CHECK_THAT(back.red(), WithinAbs(2., 1e-5));
+    CHECK_THAT(back.green(), WithinAbs(0., 1e-5));
+    CHECK(convert<CIELab>(LinSRGB{4.f, 4.f, 4.f}).lightness() > 100.f);
+
+    STATIC_REQUIRE(aest::colors::ConvertibleTo<CIELCH, OKLCH>);
+}
+
+TEST_CASE("de_76 is the Euclidean distance in CIELab", "[colors][distance]")
+{
+    using aest::colors::de_76;
+    using aest::colors::euclidean;
+
+    const SRGB red  = from_hex(0xFF'00'00);
+    const SRGB blue = from_hex(0x00'00'FF);
+    CHECK_THAT(de_76(red, blue), WithinAbs(184.019049, 1e-5));
+    CHECK(de_76(red, blue) == euclidean<CIELab>(red, blue));
+    CHECK_THAT(de_76(SRGB{0.f, 0.f, 0.f}, SRGB{1.f, 1.f, 1.f}), WithinAbs(100., 1e-6));
+    CHECK_THAT(de_76(CIELab{50.f, 0.f, 0.f}, CIELab{53.f, 4.f, 0.f}), WithinAbs(5., 1e-6));
+    CHECK(de_76(red, red.opacity(0.f)) == 0.f);
+}
+
+TEST_CASE("de_94 weights chroma and hue by the reference", "[colors][distance]")
+{
+    using aest::colors::CIE94Application;
+    using aest::colors::de_94;
+
+    // Lightness counts half in textiles
+    const CIELab gray{50.f, 0.f, 0.f};
+    CHECK_THAT(de_94(gray, CIELab{60.f, 0.f, 0.f}), WithinAbs(10., 1e-5));
+    CHECK_THAT(de_94(gray, CIELab{60.f, 0.f, 0.f}, CIE94Application::textiles),
+               WithinAbs(5., 1e-5));
+
+    // Only the reference's chroma scales the difference, so the order matters
+    const CIELab saturated{50.f, 10.f, 0.f};
+    CHECK_THAT(de_94(gray, saturated), WithinAbs(10., 1e-5));
+    CHECK_THAT(de_94(saturated, gray), WithinAbs(10. / 1.45, 1e-5));
+
+    const CIELab blue1{50.f, 2.6772f, -79.7751f};
+    const CIELab blue2{50.f, 0.f, -82.7485f};
+    CHECK_THAT(de_94(blue1, blue2), WithinAbs(1.395039, 1e-5));
+    CHECK_THAT(de_94(blue2, blue1), WithinAbs(1.365285, 1e-5));
+    CHECK_THAT(de_94(blue1, blue2, CIE94Application::textiles), WithinAbs(1.423046, 1e-5));
+    CHECK_THAT(de_94(from_hex(0xFF'00'00), from_hex(0x00'00'FF)), WithinAbs(73.826776, 1e-5));
+    CHECK_THAT(de_94(from_hex(0xFF'00'00), from_hex(0x00'00'FF)), WithinAbs(73.826776, 1e-5));
+}
+
+TEST_CASE("de_2000 matches the Sharma reference data", "[colors][distance]")
+{
+    using aest::colors::de_2000;
+
+    struct Pair
+    {
+        CIELab _color1;   ///< First color of the pair.
+        CIELab _color2;   ///< Second color of the pair.
+        double _expected; ///< ΔE00 published by Sharma, Wu and Dalal.
+    };
+
+    // From "The CIEDE2000 Color-Difference Formula" (2005), table 1: the
+    // pairs exercise the mean hue across 0°, grays and near-black colors
+    const std::array pairs = {
+        Pair{{50.f, 2.6772f, -79.7751f}, {50.f, 0.f, -82.7485f}, 2.0425},
+        Pair{{50.f, 0.f, 0.f}, {50.f, -1.f, 2.f}, 2.3669},
+        Pair{{50.f, 2.49f, -0.001f}, {50.f, -2.49f, 0.0009f}, 7.1792},
+        Pair{{50.f, 2.49f, -0.001f}, {50.f, -2.49f, 0.0011f}, 7.2195},
+        Pair{{50.f, 2.5f, 0.f}, {73.f, 25.f, -18.f}, 27.1492},
+        Pair{{60.2574f, -34.0099f, 36.2677f}, {60.4626f, -34.1751f, 39.4387f}, 1.2644},
+        Pair{{2.0776f, 0.0795f, -1.135f}, {0.9033f, -0.0636f, -0.5514f}, 0.9082},
+    };
+    for (const auto& [color1, color2, expected] : pairs)
+    {
+        CHECK_THAT(de_2000(color1, color2), WithinAbs(expected, 1e-4));
+        CHECK_THAT(de_2000(color2, color1), WithinAbs(expected, 1e-4));
+    }
+
+    // It converts any color, and ignores alpha
+    const SRGB red = from_hex(0xFF'00'00);
+    CHECK_THAT(de_2000(red, from_hex(0x00'00'FF)), WithinAbs(55.799773, 1e-5));
+    CHECK(de_2000(red, red.opacity(0.5f)) == 0.f);
 }

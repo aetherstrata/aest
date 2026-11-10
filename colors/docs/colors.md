@@ -43,23 +43,29 @@ and reaches 10000 cd/m² at linear 49.26; HLG encodes it to 75% and reaches
 its peak at linear 3.77, without an OOTF. For a luminance in cd/m², divide
 by REFERENCE_WHITE_NITS first, as in `tf::PQ::encode(1000.f / REFERENCE_WHITE_NITS)`.
 
-- aest::colors::BasicHSL, aest::colors::BasicHSV — hue, saturation and
+- aest::colors::BasicHSL, aest::colors::BasicHSV - hue, saturation and
   lightness or value, over an encoded RGB space: `BasicHSL<DisplayP3>` reaches
   the P3 colors that HSL over sRGB clips. aest::colors::HSL and
   aest::colors::HSV are the ones over SRGB, the HSL of CSS. A hue is relative
   to the primaries, so the same color has different hues over different
   gamuts. Linear spaces are rejected, since the formulas need channels in
   [0, 1].
-- aest::colors::XYZ — CIE 1931 XYZ relative to D65, independent of any
+- aest::colors::XYZ - CIE 1931 XYZ relative to D65, independent of any
   display's primaries: the root of the conversion tree. Y is the relative
   luminance, and the channels are not clamped.
-- aest::colors::OKLab, aest::colors::OKLCH — the perceptual space by Björn
+- aest::colors::OKLab, aest::colors::OKLCH - the perceptual space by Björn
   Ottosson and its polar form: lightness L (1 for white), then a and b, or
   chroma and hue. Equal distances look about equally different, and changing
   OKLCH chroma or hue keeps the perceived lightness. The matrices are the
   ones of CSS Color 4, so D65 white has no chroma. Not clamped, so they hold
   HDR and out-of-gamut colors.
-- aest::colors::Premultiplied — a linear color with premultiplied alpha, such
+- aest::colors::CIELab, aest::colors::CIELCH - CIE 1976 L\*a\*b\* and its
+  polar form, relative to D50 with the Bradford adaptation of CSS Color 4,
+  so the values match CSS `lab()` and `lch()`: lightness L (100 for white),
+  then a and b, or chroma and hue. They are the spaces of the CIE color
+  difference formulas; OKLab is more even across hues for everything else.
+  Not clamped.
+- aest::colors::Premultiplied - a linear color with premultiplied alpha, such
   as `Premultiplied<LinSRGB>`, for compositing.
 - `from_hex()`, `from_rgba()` and `from_argb()` build a color from a hex
   code, 8-bit channels or a packed 32-bit integer; `to_rgba()`, `to_argb()`
@@ -69,7 +75,7 @@ by REFERENCE_WHITE_NITS first, as in `tf::PQ::encode(1000.f / REFERENCE_WHITE_NI
   is an SRGB color, `from_rgba<HSL>(0, 120, 80)` an HSL one, and
   `to_rgba(color)` clips a color outside the SRGB gamut. To store a color's
   own encoding instead, as for a GPU texture, use the `pack_*` functions.
-- aest::colors::ColorBase::opacity() — copies a color with a new alpha.
+- aest::colors::ColorBase::opacity() - copies a color with a new alpha.
 - `std::format("{}", color)` prints the color space and its channels, as in
   `SRGB(1.000, 0.000, 0.500, 1.000)`; a float spec such as `{:.1f}` applies to
   each channel.
@@ -122,15 +128,16 @@ aest::colors::in tag, as in `lighten(color, 0.2f, in<HSL>)`, which is the
 same call. The result has the input's type. A space supports an operation by
 specializing the operation's trait.
 
-| Operation                                              | Does                                                                                                                          | Default space                     | Trait                       |
-|--------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|-----------------------------------|-----------------------------|
-| aest::colors::lighten(), aest::colors::darken()        | Move a fraction of the way toward white or black, keeping hue and alpha                                                       | OKLCH                             | aest::colors::Lightness     |
-| aest::colors::mix()                                    | Blend two colors, alpha included: 0 gives the first, 1 the second                                                             | Linear light in the input's gamut | aest::colors::Interpolation |
-| aest::colors::euclidean()                              | Distance between two colors, ignoring alpha: ΔE_OK by default                                                                 | OKLab                             | aest::colors::Euclidean     |
-| aest::colors::saturate(), aest::colors::desaturate()   | Raise or lower saturation: in OKLCH scale the chroma by `1 + t` or `1 - t`; in HSL move a fraction of the way to full or gray | OKLCH                             | aest::colors::Saturation    |
-| aest::colors::grayscale()                              | Remove the saturation, keeping the lightness: in OKLCH, the perceived one                                                     | OKLCH                             | aest::colors::Saturation    |
-| aest::colors::rotate_hue(), aest::colors::complement() | Turn the hue by an angle, or by 180°, keeping lightness and chroma                                                            | OKLCH                             | aest::colors::Hue           |
-| aest::colors::invert()                                 | `1 - c` on each encoded RGB channel, like CSS `invert()`, keeping alpha                                                       | The color's own                   | None                        |
+| Operation                                                             | Does                                                                                                                          | Default space                     | Trait                       |
+|-----------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|-----------------------------------|-----------------------------|
+| aest::colors::lighten(), aest::colors::darken()                       | Move a fraction of the way toward white or black, keeping hue and alpha                                                       | OKLCH                             | aest::colors::Lightness     |
+| aest::colors::mix()                                                   | Blend two colors, alpha included: 0 gives the first, 1 the second                                                             | Linear light in the input's gamut | aest::colors::Interpolation |
+| aest::colors::euclidean()                                             | Distance between two colors, ignoring alpha: ΔE_OK by default                                                                 | OKLab                             | aest::colors::Euclidean     |
+| aest::colors::de_76(), aest::colors::de_94(), aest::colors::de_2000() | The CIE color differences ΔE\*ab, ΔE\*94 and ΔE00, ignoring alpha                                                             | CIELab, fixed                     | None                        |
+| aest::colors::saturate(), aest::colors::desaturate()                  | Raise or lower saturation: in OKLCH scale the chroma by `1 + t` or `1 - t`; in HSL move a fraction of the way to full or gray | OKLCH                             | aest::colors::Saturation    |
+| aest::colors::grayscale()                                             | Remove the saturation, keeping the lightness: in OKLCH, the perceived one                                                     | OKLCH                             | aest::colors::Saturation    |
+| aest::colors::rotate_hue(), aest::colors::complement()                | Turn the hue by an angle, or by 180°, keeping lightness and chroma                                                            | OKLCH                             | aest::colors::Hue           |
+| aest::colors::invert()                                                | `1 - c` on each encoded RGB channel, like CSS `invert()`, keeping alpha                                                       | The color's own                   | None                        |
 
 lighten() and darken() work in OKLCH, so equal amounts give equal perceived
 steps whatever the hue: in HSL, yellow and blue at the same lightness look
@@ -139,7 +146,15 @@ black, so the color moves in a straight line toward it, keeps its hue, and
 an amount of 1 gives exactly white or black. `lighten<HSL>(color, amount)`
 keeps the saturation instead. euclidean() measures ΔE_OK, the difference in
 OKLab, where equal distances look about equally different; about 0.02 is
-just noticeable. These defaults need `std::cbrt`, so they run at run time;
+just noticeable. The CIE formulas measure in CIELab, where 100 separates
+black from white: de_76() is `euclidean<CIELab>()`, and overstates
+differences between saturated colors; de_94() scales the chroma and
+hue differences down as the chroma of its first color, the reference,
+grows, so it is not symmetric, and takes the weights for graphic arts or,
+with aest::colors::CIE94Application::textiles, textiles; de_2000(),
+the current CIE formula, is symmetric and corrects the blues and the
+near-grays too. A difference of about 2.3 in ΔE\*ab, or 1 in ΔE00, is just
+noticeable. These defaults need `std::cbrt`, so they run at run time;
 the HSL and RGB ones stay `constexpr`. Results in OKLCH and OKLab can fall
 outside the input's gamut and clip when converted back. grayscale(),
 rotate_hue(), complement(), saturate() and desaturate() default to OKLCH
@@ -186,11 +201,11 @@ the other color, so a gradient from gray to red stays red. Without a mode,
 
 ## Luminance and contrast
 
-- aest::colors::luminance() — the relative luminance of a color, the Y of
+- aest::colors::luminance() - the relative luminance of a color, the Y of
   its XYZ, ignoring alpha: for LinSRGB its channels weighted with the
   Rec. 709 coefficients, about 0.2126, 0.7152 and 0.0722. White gives 1,
   black 0, and HDR colors more than 1.
-- aest::colors::contrast_ratio() — the WCAG 2.x contrast ratio of two colors,
+- aest::colors::contrast_ratio() - the WCAG 2.x contrast ratio of two colors,
   from 1 to 21, in either order. Both are measured as a display shows them,
   through SRGB, so HDR values clip to white. Alpha is ignored: composite a
   translucent color onto its background with aest::colors::over() first.
@@ -245,8 +260,8 @@ to and from IEEE 754 halves, with IEEE rounding, infinities and NaN.
 
 ## Design
 
-- @subpage colors_architecture — the type model, the conversion tree, how
+- @subpage colors_architecture - the type model, the conversion tree, how
   operations pick a working space, and what runs at compile time.
-- @subpage colors_extending — adding a color space or an operation.
-- @subpage colors_rendering — using the library in a rendering pipeline:
+- @subpage colors_extending - adding a color space or an operation.
+- @subpage colors_rendering - using the library in a rendering pipeline:
   linear light, HDR values and compositing.
