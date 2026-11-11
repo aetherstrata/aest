@@ -319,11 +319,14 @@ float de_2000(const Color1& color1, const Color2& color2)
             meanHue = hueSum < 360 ? (hueSum + 360) / 2 : (hueSum - 360) / 2;
     }
 
+    const auto cosine = [](const double degrees) {
+        return std::cos(degrees / DEGREES_PER_RADIAN);
+    };
+
     const double meanLightness   = (l1 + l2) / 2;
     const double meanPrimeChroma = (chroma1 + chroma2) / 2;
-    const auto cosine = [](const double degrees) { return std::cos(degrees / DEGREES_PER_RADIAN); };
-    const double hueWeight = 1 - 0.17 * cosine(meanHue - 30) + 0.24 * cosine(2 * meanHue)
-                           + 0.32 * cosine(3 * meanHue + 6) - 0.20 * cosine(4 * meanHue - 63);
+    const double hueWeight       = 1 - 0.17 * cosine(meanHue - 30) + 0.24 * cosine(2 * meanHue)
+                                 + 0.32 * cosine(3 * meanHue + 6) - 0.20 * cosine(4 * meanHue - 63);
 
     const double fromMidGray     = (meanLightness - 50) * (meanLightness - 50);
     const double lightnessScale  = 1 + 0.015 * fromMidGray / std::sqrt(20 + fromMidGray);

@@ -9,6 +9,7 @@ LineEnding: LF
 AccessModifierOffset: -4
 
 
+AllowShortLambdasOnASingleLine: Empty
 AllowShortFunctionsOnASingleLine: Inline
 PackParameters:
   BinPack: OnePerLine
