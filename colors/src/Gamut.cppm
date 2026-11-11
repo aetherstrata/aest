@@ -182,7 +182,8 @@ template <RGBGamut Gamut>
 constexpr Matrix3 gamut_to_xyz()
 {
     const Matrix3 native = rgb_to_xyz(Gamut::RED, Gamut::GREEN, Gamut::BLUE, Gamut::WHITE);
-    return Gamut::WHITE == D65 ? native : blas::multiply(bradford_to_d65(Gamut::WHITE), native);
+    const bool isD65     = Gamut::WHITE[0] == D65[0] && Gamut::WHITE[1] == D65[1];
+    return isD65 ? native : blas::multiply(bradford_to_d65(Gamut::WHITE), native);
 }
 
 /**
