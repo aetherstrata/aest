@@ -22,4 +22,10 @@ aest_add_library(colors
 
 add_subdirectory(tests)
 
-aest_add_examples(colors SOURCES examples/basic.cpp examples/hdr.cpp)
+aest_add_examples(colors
+    SOURCES examples/basic.cpp
+        examples/gradient.cpp
+        examples/hdr.cpp
+        examples/palette.cpp
+        examples/theme.cpp
+)
